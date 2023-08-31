@@ -35,15 +35,33 @@ void text_delete_char() {
 void text_delete_line() {
   Text *t = curr_text;
   Line *line = &t->lines[t->y];
-  for (int i = t->y; i < t->num_lines; i++) {
+  for (int i = t->y; i < t->num_lines - 1; i++) {
+    // swap bottom and top lines. this ends up deleting the first one, which is
+    // the one our cursor is currently over.
+    memcpy(&t->lines[i], &t->lines[i + 1], sizeof(Line));
+  }
+}
+
+static void internal_open_line_n(int n) {
+  Text *t = curr_text;
+  for (int i = t->num_lines; i > n; i--) {
+    memcpy(&t->lines[i], &t->lines[i - 1], sizeof(Line));
   }
 }
 
 // 'O' in vi bindings
-void text_open_line_above() {}
+void text_open_line_above() {
+  Text *t = curr_text;
+  // don't let it go negative.
+  internal_open_line_n(MAX(t->y - 1, 0));
+}
 
 // 'o' in vi bindings
-void text_open_line() {}
+void text_open_line() {
+  Text *t = curr_text;
+  // don't let it overflow the file.
+  internal_open_line_n(MIN(t->y + 1, t->num_lines));
+}
 
 static void internal_paragraph_handler(int dir) {
   Text *t = curr_text;
