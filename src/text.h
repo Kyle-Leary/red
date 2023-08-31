@@ -8,13 +8,16 @@
 
 #define MAX_TEXTS 5
 
+// the internal text buffer is a dynamically-sized array of Lines, which are
+// themselves gap buffers.
+
 typedef struct Text {
   char file_path[MAX_FILE_PATH_SZ];
   Line lines[NUM_LINES];
   int num_lines;
 
-  // the user's x and y position into the text.
-  int x, y;
+  // the line number, thought of here as the "y position" into the text.
+  int y;
 } Text;
 
 extern WArray texts;
@@ -22,13 +25,14 @@ extern WArray texts;
 // NULL if we don't have any file open currently.
 extern Text *curr_text;
 
-int text_move_x(int by);
+void text_move_x(int by);
 
 int text_move_y(int by);
 
 void texts_init();
 
-// save the currently opened file.
+// save the currently opened file. this re-writes the original file from the
+// internal buffer, so be careful.
 void text_save();
 
 // append to the currently active buffer.

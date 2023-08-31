@@ -3,88 +3,53 @@
 #include <stdio.h>
 #include <string.h>
 
-void test_line_shift_left() {
-  Line l = {.left = 0, .right = 4, .left_sz = 0, .len = 4};
+void test_line() {
+  Line l = {.gap_start = 0, .gap_end = 3, .buffer = {0}};
   strncpy(l.buffer, "    abcd", LINE_BUF_SZ);
 
   // Test for shifting left from an initially empty left buffer
   line_shift_left(&l);
-  assert(l.left_sz == 0);
-  assert(l.right == 4);
+  assert(l.gap_start == 0);
+  assert(l.gap_end == 3);
 
   // Test for a normal shift left operation
-  l.right = 6;
-  l.left_sz = 2;
-  strncpy(l.buffer, "ab  cd", LINE_BUF_SZ);
+  l.gap_start = 2;
+  l.gap_end = 3;
+  memcpy(l.buffer, "ab\0\0cd", 6);
 
-  line_debug_print(&l, 10);
+  line_debug_print(&l, 6);
   line_shift_left(&l);
-  line_debug_print(&l, 10);
+  line_debug_print(&l, 6);
 
-  assert(l.left_sz == 1);
-  assert(l.right == 5);
-  assert(strncmp(l.buffer, "a b cd", LINE_BUF_SZ) == 0);
-}
+  assert(l.gap_start == 1);
+  assert(l.gap_end == 2);
+  assert(memcmp(l.buffer, "a\0\0bcd", 6) == 0);
 
-void test_line_shift_right() {
-  Line l = {.left = 0, .right = LINE_BUF_SZ, .left_sz = 0, .len = LINE_BUF_SZ};
-
-  // Test for shifting right into an initially full buffer
-  line_shift_right(&l);
-  assert(l.right == LINE_BUF_SZ);
-
-  // Test for a normal shift right operation
-  l.right = 6;
-  l.left_sz = 2;
-  strncpy(l.buffer, "ab  cd", LINE_BUF_SZ);
-  line_shift_right(&l);
-  assert(l.left_sz == 3);
-  assert(l.right == 7);
-  assert(strncmp(l.buffer, "abc  d", LINE_BUF_SZ) == 0);
-}
-
-void test_line_shift_by() {
-  Line l = {.left = 0, .right = 6, .left_sz = 2, .len = 4};
-  strncpy(l.buffer, "ab  cd", LINE_BUF_SZ);
-
-  // Shifting left by a negative value
-  line_shift_by(&l, -1);
-  assert(l.left_sz == 1);
-  assert(l.right == 5);
-
-  // Shifting right by a positive value
-  line_shift_by(&l, 1);
-  assert(l.left_sz == 2);
-  assert(l.right == 6);
-}
-
-void test_line_insert() {
-  Line l = {.left = 0, .right = 2, .left_sz = 0, .len = 0};
-  strncpy(l.buffer, "  ", LINE_BUF_SZ);
-  line_insert(&l, 'a');
-  assert(l.len == 1);
-
-  // Assuming your line_insert function also updates the buffer and indices,
-  // which it currently doesn't in your partial implementation
-  // assert(strncmp(l.buffer, "a ", LINE_BUF_SZ) == 0);
-}
-
-void test_line_delete() {
-  Line l = {.left = 0, .right = 4, .left_sz = 2, .len = 4};
-  strncpy(l.buffer, "ab  cd", LINE_BUF_SZ);
+  line_debug_print(&l, 6);
+  line_insert(&l, 'i');
+  line_debug_print(&l, 6);
   line_delete(&l);
-  assert(l.len == 3);
+  line_debug_print(&l, 6);
 
-  // Assuming your line_delete function also updates the buffer and indices,
-  // which it currently doesn't in your partial implementation
-  // assert(strncmp(l.buffer, "a  cd", LINE_BUF_SZ) == 0);
-}
+  line_debug_print(&l, 6);
+  line_shift_right(&l);
+  line_debug_print(&l, 6);
 
-void test_line() {
-  test_line_shift_left();
-  test_line_shift_right();
-  test_line_shift_by();
-  test_line_insert();
-  test_line_delete();
+  line_debug_print(&l, 6);
+  line_shift_right(&l);
+  line_debug_print(&l, 6);
+
+  char buf[LINE_BUF_SZ] = {0};
+  char *ptr = buf;
+  // if we're on the current cursor line, then give the cursor a nice red
+  // background.
+
+  ptr += sprintf(ptr, "%s", l.buffer);
+  ptr += sprintf(ptr, "%s", &l.buffer[l.gap_end + 1]);
+
+  printf("%s\n", buf);
+
+  assert(0);
+
   printf("All tests passed!\n");
 }

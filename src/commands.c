@@ -97,7 +97,11 @@ void command_run(char *command, int len) {
     return;
 
   Command *c = (Command *)w_cm_get(&command_map, cmd_buf.argv[0]);
-  c->fn(&cmd_buf);
+  if (c) {
+    c->fn(&cmd_buf);
+  } else {
+    status_printf("Command not found.");
+  }
 }
 
 void handle_command_input(InputEvent *e) {

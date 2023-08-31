@@ -70,8 +70,7 @@ static void internal_paragraph_handler(int dir) {
   // get the full line, and compare it with \n.
   char buf[LINE_BUF_SZ];
   do {
-    sprintf(buf, "%s%s\n", &line->buffer[line->left],
-            &line->buffer[line->right]);
+    sprintf(buf, "%s%s\n", line->buffer, &line->buffer[line->gap_end + 1]);
 
     if (buf[0] == '\n') {
       if (text_move_y(dir) == 0) {
@@ -93,26 +92,13 @@ void text_last_paragraph() { internal_paragraph_handler(-1); }
 // current line and current text.
 static void refresh_line() {}
 
-int text_move_x(int by) {
+void text_move_x(int by) {
   Text *t = curr_text;
-
-  if (by < 0) {
-    // it cannot exceed the left boundary from the cursor.
-    by = CLAMP(by, -t->x, 0);
-    t->x += by;
-  } else {
-    by = CLAMP(by, 0, t->lines[t->y].len);
-    t->x += by;
-  }
-
   line_shift_by(&t->lines[t->y], by);
-
-  return by;
 }
 
 int text_move_y(int by) {
   Text *t = curr_text;
-
   if (by < 0) {
     by = CLAMP(by, -t->y, 0);
     t->y += by;
@@ -120,11 +106,26 @@ int text_move_y(int by) {
     by = CLAMP(by, 0, t->num_lines);
     t->y += by;
   }
-
   return by;
 }
 
-void text_save() { status_printf("Saving is not implemented."); }
+void text_save() {
+  Text *t = curr_text;
+
+  FILE *file = fopen(t->file_path, "w");
+
+  char buf[LINE_BUF_SZ];
+  char *ptr = buf;
+
+  for (int i = 0; i < t->num_lines; i++) {
+    Line *line = &t->lines[i];
+    ptr += sprintf(ptr, "%s", line->buffer);
+    ptr += sprintf(ptr, "%s", &line->buffer[line->gap_end]);
+    fprintf(file, "%s", buf);
+  }
+
+  fclose(file);
+}
 
 Text *text_open(char *file_path) {
   Text *t = w_array_get_slot_ptr(&texts, 0);
@@ -135,19 +136,20 @@ Text *text_open(char *file_path) {
   FILE *file = fopen(file_path, "r");
   int i = 0;
   do {
+    i++;
+
     Line *line = &t->lines[i];
-    line->left = 0;
-    line->left_sz = 0;
-    line->right = LINE_BUF_SZ / 2;
+    line->gap_start = 0;
+    line->gap_end = LINE_BUF_SZ;
 
     memset(line->buffer, 0, LINE_BUF_SZ);
 
-    if (fgets(&line->buffer[line->right], LINE_BUF_SZ / 2, file) == NULL)
+    if (fgets(&line->buffer[line->gap_start], LINE_BUF_SZ, file) == NULL)
       break;
 
-    line->len = strlen(&line->buffer[line->right]);
-
-    i++;
+    // put everything to the left of the gap.
+    line->gap_start += strlen(&line->buffer[line->gap_start]);
+    line_go_to_beginning(line);
   } while (1);
 
   t->num_lines = i;

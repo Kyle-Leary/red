@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   }
 
   texts_init();
-  text_open("./src/text.c");
+  text_open("./testfile");
 
   while (!should_quit) {
     int num_e = 0;

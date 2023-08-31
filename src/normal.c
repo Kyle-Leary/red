@@ -1,5 +1,6 @@
 #include "normal.h"
 #include "keydef.h"
+#include "line.h"
 #include "macros.h"
 #include "mode.h"
 #include "text.h"
@@ -9,9 +10,12 @@
 static char prev = '\0';
 
 static void char_handler(char c) {
+  Line *line = &curr_text->lines[curr_text->y];
+
   switch (prev) {
   case 'd': {
     text_delete_line();
+    prev = '\0';
   } break;
   case ';': {
     // keep it in f-search mode.
@@ -37,6 +41,33 @@ static void char_handler(char c) {
   } break;
   case 'F': {
     prev = c;
+  } break;
+
+  case '$': {
+    line_go_to_end(&curr_text->lines[curr_text->y]);
+  } break;
+  case '0': {
+    line_go_to_beginning(line);
+  } break;
+
+  case 'x': {
+    text_delete_char();
+  } break;
+
+  case 'i': {
+    change_mode(INSERT);
+  } break;
+  case 'I': {
+    line_go_to_beginning(line);
+    change_mode(INSERT);
+  } break;
+  case 'a': {
+    line_shift_right(line);
+    change_mode(INSERT);
+  } break;
+  case 'A': {
+    line_go_to_end(line);
+    change_mode(INSERT);
   } break;
 
   case 'h': {

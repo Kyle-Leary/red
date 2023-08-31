@@ -1,6 +1,7 @@
 #include "render.h"
 #include "ansi.h"
 #include "commands.h"
+#include "line.h"
 #include "macros.h"
 #include "mode.h"
 #include "text.h"
@@ -80,10 +81,12 @@ static void render_text() {
   int end = MIN(t.num_lines, text_display_rows + t.y);
 
   // near the bottom, on the last columns of the terminal:
-  pprintf(0, render_data.col, "STATUS: [ EDITING - %s | MODE - %s ]\n",
+  pprintf(0, render_data.col,
+          ANSI_BLACK ANSI_BG_RED
+          "-===STATUS: [ EDITING - %s | MODE - %s ]===-\n",
           t.file_path, mode_string(curr_mode));
   pprintf(0, render_data.col, " > %s\n", render_data.status_message);
-  pprintf(0, render_data.col, " : %s\n", command.buf);
+  pprintf(0, render_data.col, " : %s" ANSI_RESET "\n", command.buf);
 
   for (int i = t.y; i < end; i++) {
     bool is_curr_line = (i == t.y);
@@ -92,11 +95,32 @@ static void render_text() {
 
     Line *line = &curr_text->lines[i];
 
-    // print the cursor character with a cool background.
-    pprintf(0, 1 + i - t.y, "%3d: %s%s%c%s%s\n", i + 1,
-            &line->buffer[line->left], IF_IS_CURR(ANSI_BG_RED),
-            line->buffer[line->right], IF_IS_CURR(ANSI_RESET),
-            &line->buffer[line->right + 1]);
+    char buf[LINE_BUF_SZ] = {0};
+    char *ptr = buf;
+    int cursor_idx = sprintf(ptr, "%s", line->buffer);
+    ptr += cursor_idx;
+
+    // on the cursor x position
+    if (is_curr_line) {
+      // ptr += sprintf(&buf[cursor_idx - 1], ANSI_BG_RED "%c" ANSI_RESET,
+      //                line->buffer[t.x]);
+      if (curr_mode == INSERT) {
+        buf[cursor_idx] = 'X';
+        ptr++;
+      } else {
+        buf[cursor_idx - 1] = 'X';
+      }
+    } else {
+      buf[cursor_idx - 1] = line->buffer[line->gap_start - 1];
+    }
+
+    // then sprintf the stuff after the gap.
+    ptr += sprintf(ptr, "%s", &line->buffer[line->gap_end + 1]);
+
+    pprintf(0, 1 + i - t.y,
+            ANSI_BG_MAGENTA ANSI_BLACK "%3d" ANSI_RESET ANSI_YELLOW
+                                       ":" ANSI_RESET " %s\n",
+            i + 1, buf);
 
 #undef IF_IS_CURR
   }
