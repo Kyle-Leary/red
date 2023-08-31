@@ -40,6 +40,8 @@ void text_delete_line() {
     // the one our cursor is currently over.
     memcpy(&t->lines[i], &t->lines[i + 1], sizeof(Line));
   }
+  memset(&t->lines[t->num_lines], 0, sizeof(Line));
+  t->num_lines--;
 }
 
 static void internal_open_line_n(int n) {
@@ -47,6 +49,13 @@ static void internal_open_line_n(int n) {
   for (int i = t->num_lines; i > n; i--) {
     memcpy(&t->lines[i], &t->lines[i - 1], sizeof(Line));
   }
+  t->num_lines++;
+
+  memset(&t->lines[t->num_lines], 0, sizeof(Line));
+  t->lines[t->num_lines].gap_start = 1;
+  t->lines[t->num_lines].gap_end = LINE_BUF_SZ - 1;
+  t->lines[t->num_lines].buffer[0] = '\n';
+  t->y = n;
 }
 
 // 'O' in vi bindings
@@ -65,20 +74,30 @@ void text_open_line() {
 
 static void internal_paragraph_handler(int dir) {
   Text *t = curr_text;
-  Line *line = &t->lines[t->y];
 
-  // get the full line, and compare it with \n.
-  char buf[LINE_BUF_SZ];
+  text_move_y(dir);
   do {
-    sprintf(buf, "%s%s\n", line->buffer, &line->buffer[line->gap_end + 1]);
-
-    if (buf[0] == '\n') {
-      if (text_move_y(dir) == 0) {
-        // if we couldn't move anymore.
+    Line *line = &t->lines[t->y];
+    if (line->buffer[0] == '\n') {
+      // empty line, stop moving unless there's another empty line right in
+      // front of us.
+      int next_idx = t->y + dir;
+      if (IS_INSIDE(next_idx, 0, t->num_lines)) {
+        Line *next_line = &t->lines[next_idx];
+        if (next_line->buffer[0] != '\n') {
+          break;
+        }
+        // if it's not an empty, move again.
+      } else {
+        // end of file. (or start of file)
         break;
       }
-    } else {
-      // we found a non-empty line.
+    }
+
+    // we found a non-empty line.
+    // move past it.
+    if (text_move_y(dir) == 0) {
+      // if we couldn't move anymore.
       break;
     }
   } while (1);
@@ -87,10 +106,6 @@ static void internal_paragraph_handler(int dir) {
 // search ahead for lines whose buffers are just a single '\n'.
 void text_next_paragraph() { internal_paragraph_handler(1); }
 void text_last_paragraph() { internal_paragraph_handler(-1); }
-
-// after moving something around, reorganize the gap buffer. operates on the
-// current line and current text.
-static void refresh_line() {}
 
 void text_move_x(int by) {
   Text *t = curr_text;
@@ -106,7 +121,7 @@ int text_move_y(int by) {
     by = CLAMP(by, -t->y, 0);
     t->y += by;
   } else {
-    by = CLAMP(by, 0, t->num_lines);
+    by = CLAMP(by, 0, (t->num_lines - t->y - 1));
     t->y += by;
   }
 
@@ -128,9 +143,7 @@ void text_save() {
 
   for (int i = 0; i < t->num_lines; i++) {
     Line *line = &t->lines[i];
-    ptr += sprintf(ptr, "%s", line->buffer);
-    ptr += sprintf(ptr, "%s", &line->buffer[line->gap_end]);
-    fprintf(file, "%s", buf);
+    fprintf(file, "%s%s", line->buffer, &line->buffer[line->gap_end + 1]);
   }
 
   fclose(file);
@@ -145,20 +158,21 @@ Text *text_open(char *file_path) {
   FILE *file = fopen(file_path, "r");
   int i = 0;
   do {
-    i++;
-
     Line *line = &t->lines[i];
     line->gap_start = 0;
     line->gap_end = LINE_BUF_SZ;
 
     memset(line->buffer, 0, LINE_BUF_SZ);
 
-    if (fgets(&line->buffer[line->gap_start], LINE_BUF_SZ, file) == NULL)
+    if (fgets(&line->buffer[line->gap_start], LINE_BUF_SZ, file) == NULL) {
       break;
-
-    // put everything to the left of the gap.
-    line->gap_start += strlen(&line->buffer[line->gap_start]);
-    line_go_to_beginning(line);
+    } else {
+      i++;
+      // put everything to the left of the gap.
+      line->gap_start += strlen(&line->buffer[line->gap_start]);
+      line->gap_start++;
+      line_go_to_beginning(line);
+    }
   } while (1);
 
   t->num_lines = i;
