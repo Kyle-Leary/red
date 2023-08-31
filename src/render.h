@@ -22,3 +22,8 @@ void clean_render();
 // decide whether or not we need a re-render, handle everything related to
 // drawing on the screen/getting required terminal variables.
 void render();
+
+void set_cursor_block();
+void set_cursor_underline();
+void set_cursor_line();
+void reset_cursor_shape();

@@ -18,29 +18,40 @@
 
 RenderData render_data = {0};
 
-static void set_cursor_block() {
+void set_cursor_block() {
   printf("\033[2 q");
   fflush(stdout);
 }
 
-static void set_cursor_underline() {
+void set_cursor_underline() {
   printf("\033[4 q");
   fflush(stdout);
 }
 
-static void set_cursor_line() {
+void set_cursor_line() {
   printf("\033[6 q");
   fflush(stdout);
 }
 
-static void reset_cursor_shape() {
+void reset_cursor_shape() {
   printf("\033[q");
   fflush(stdout);
 }
 
-static void hide_cursor() { printf("\033[?25l\n"); }
+static void move_cursor(int row, int col) {
+  printf("\033[%d;%dH", row, col);
+  fflush(stdout); // Flush the output buffer
+}
 
-static void show_cursor() { printf("\033[?25h\n"); }
+static void hide_cursor() {
+  printf("\033[?25l");
+  fflush(stdout);
+}
+
+static void show_cursor() {
+  printf("\033[?25h");
+  fflush(stdout);
+}
 
 static void get_term_sz() {
   struct winsize w;
@@ -53,7 +64,8 @@ static void clear_screen() {
   // Clear the screen
   printf("\033[2J");
   // Move the cursor to the top-left corner
-  printf("\033[H\n");
+  printf("\033[H");
+  fflush(stdout);
 }
 
 static void pprintf(int x, int y, const char *format, ...) {
@@ -97,22 +109,7 @@ static void render_text() {
 
     char buf[LINE_BUF_SZ] = {0};
     char *ptr = buf;
-    int cursor_idx = sprintf(ptr, "%s", line->buffer);
-    ptr += cursor_idx;
-
-    // on the cursor x position
-    if (is_curr_line) {
-      // ptr += sprintf(&buf[cursor_idx - 1], ANSI_BG_RED "%c" ANSI_RESET,
-      //                line->buffer[t.x]);
-      if (curr_mode == INSERT) {
-        buf[cursor_idx] = 'X';
-        ptr++;
-      } else {
-        buf[cursor_idx - 1] = 'X';
-      }
-    } else {
-      buf[cursor_idx - 1] = line->buffer[line->gap_start - 1];
-    }
+    ptr += sprintf(ptr, "%s", line->buffer);
 
     // then sprintf the stuff after the gap.
     ptr += sprintf(ptr, "%s", &line->buffer[line->gap_end + 1]);
@@ -124,6 +121,17 @@ static void render_text() {
 
 #undef IF_IS_CURR
   }
+
+  int cursor_x = t.lines[t.y].gap_start + 5;
+  switch (curr_mode) {
+  case INSERT: {
+    cursor_x++;
+  } break;
+  default: {
+  } break;
+  }
+
+  move_cursor(1, cursor_x);
 }
 
 void status_printf(const char *format, ...) {

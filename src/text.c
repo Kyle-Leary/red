@@ -99,12 +99,21 @@ void text_move_x(int by) {
 
 int text_move_y(int by) {
   Text *t = curr_text;
+
+  int old_x = t->lines[t->y].gap_start - 1;
+
   if (by < 0) {
     by = CLAMP(by, -t->y, 0);
     t->y += by;
   } else {
     by = CLAMP(by, 0, t->num_lines);
     t->y += by;
+  }
+
+  if (by != 0) {
+    Line *new_line = &t->lines[t->y];
+    line_go_to_beginning(new_line);
+    text_move_x(old_x);
   }
   return by;
 }

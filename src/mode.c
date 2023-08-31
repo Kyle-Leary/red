@@ -39,8 +39,10 @@ const char *mode_string(Mode mode) {
 void change_mode(Mode mode) {
   switch (mode) {
   case NORMAL: {
+    set_cursor_block();
   } break;
   case INSERT: {
+    set_cursor_line();
   } break;
   case VISUAL: {
   } break;
