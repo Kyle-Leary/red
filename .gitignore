@@ -1,0 +1,46 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+build/
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*.elf
+
+red
+
+# IDE / editor specific files
+*.swp
+*.swo
+*.user
+*.suo
+*.sublime-project
+*.sublime-workspace
+.vscode/
+
+# Other common temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~.nib
