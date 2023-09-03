@@ -80,16 +80,21 @@ static void render_text() {
 
   int text_display_rows = render_data.tb.row - 4;
 
-  tb_change_color(TB, TC_MAGENTA);
+  // make sure any previous colors aren't affecting us still.
+  tb_change_color(TB, TC_RESET);
+  tb_change_color(TB, TC_BG_RED);
+  tb_change_color(TB, TC_WHITE);
+
+  const char *status_str = "-=== STATUS: [ EDITING - %s | MODE - %s ] ===-";
 
   // near the bottom, on the last columns of the terminal:
-  tb_pprintf(TB, 0, 2, "-=== STATUS: [ EDITING - %s | MODE - %s ] ===-",
-             (curr_text) ? curr_text->file_path : "NONE",
+  tb_pprintf(TB, 0, 5, status_str, (curr_text) ? curr_text->file_path : "NONE",
              mode_string(curr_mode));
 
   int com_row = 2;
 
-  tb_change_color(TB, TC_GREEN);
+  tb_change_color(TB, TC_RESET);
+  tb_change_color(TB, TC_MAGENTA);
 
   if (curr_mode == COMMAND)
     tb_pprintf(TB, com_row, 1, " : %50s", command.buf);
@@ -117,8 +122,18 @@ static void render_text() {
     } else {
       Line *line = &curr_text->lines[idx];
 
-      tb_pprintf(TB, j, 1, "%3d: %s%s", idx + 1, line->buffer,
+      int base_col = 1;
+      tb_change_color(TB, TC_RESET);
+      tb_pprintf(TB, j, base_col, " ", idx + 1);
+      tb_change_color(TB, TC_BG_GREEN);
+      tb_change_color(TB, TC_BLACK);
+      tb_pprintf(TB, j, base_col + 1, "%3d", idx + 1);
+      tb_change_color(TB, TC_RESET);
+      tb_change_color(TB, TC_RED);
+      tb_pprintf(TB, j, base_col + 4, ": ", idx + 1);
+      tb_pprintf(TB, j, base_col + 6, "%s%s", line->buffer,
                  &line->buffer[line->gap_end + 1]);
+      tb_change_color(TB, TC_RESET);
     }
 
     j++;

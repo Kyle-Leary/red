@@ -10,6 +10,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // write to a single public command buffer.
@@ -91,6 +92,31 @@ void command_run(char *command, int len) {
     return;
   }
 
+  if (command[0] == '!') {
+    status_printf("Running in the shell: '%s'", command + 1);
+
+    // exec the command natively on the system and capture the output,
+    // printing it to the status bar.
+    FILE *fp;
+    char output[1024]; // Change the size according to your needs
+
+    fp = popen(command + 1, "r");
+    if (fp == NULL) {
+      status_printf("Failed to run command.");
+      return;
+    }
+
+    /* Read the output a line at a time - output it. */
+    while (fgets(output, sizeof(output), fp) != NULL) {
+      status_printf("Output: %s", output);
+    }
+
+    pclose(fp);
+
+    return;
+  }
+
+  // else, just run the command specified in the command hashtable.
   CommandInput cmd_buf;
   split_string(&cmd_buf, command);
   if (cmd_buf.argc == 0)
