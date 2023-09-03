@@ -10,6 +10,11 @@ void handle_insert_input(InputEvent *e) {
       text_delete_char();
     } break;
 
+    case '\t': {
+      text_write_char(' ');
+      text_write_char(' ');
+    } break;
+
     default: {
       text_write_char(e->data.as_char);
     } break;

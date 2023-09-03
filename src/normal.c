@@ -4,6 +4,7 @@
 #include "macros.h"
 #include "mode.h"
 #include "text.h"
+#include "whisper/gap_buffer.h"
 
 // the previous char pressed. NULL if there's no significant char right before
 // us. this is used to implement the "combo" type commands, like dd or yi.
@@ -20,6 +21,15 @@ static void char_handler(char c) {
   case ';': {
     // keep it in f-search mode.
     return;
+  } break;
+  case 'g': {
+    switch (c) {
+    case 'g': {
+      text_top();
+    } break;
+    }
+
+    prev = '\0';
   } break;
   default: {
     prev = '\0';
@@ -44,10 +54,11 @@ static void char_handler(char c) {
   } break;
 
   case '$': {
-    line_go_to_end(&curr_text->lines[curr_text->y]);
+    w_gb_go_to_end(CURR_LINE);
+    w_gb_shift_left(CURR_LINE);
   } break;
   case '0': {
-    line_go_to_beginning(line);
+    w_gb_go_to_beginning(line);
   } break;
 
   case 'x': {
@@ -58,16 +69,24 @@ static void char_handler(char c) {
     change_mode(INSERT);
   } break;
   case 'I': {
-    line_go_to_beginning(line);
+    w_gb_go_to_beginning(line);
     change_mode(INSERT);
   } break;
   case 'a': {
-    line_shift_right(line);
+    w_gb_shift_right(line);
     change_mode(INSERT);
   } break;
   case 'A': {
-    line_go_to_end(line);
+    w_gb_go_to_end(CURR_LINE);
+    w_gb_shift_left(CURR_LINE);
     change_mode(INSERT);
+  } break;
+
+  case 'G': {
+    text_bottom();
+  } break;
+  case 'g': {
+    prev = 'g';
   } break;
 
   case 'h': {
@@ -85,9 +104,11 @@ static void char_handler(char c) {
 
   case 'o': {
     text_open_line();
+    change_mode(INSERT);
   } break;
   case 'O': {
     text_open_line_above();
+    change_mode(INSERT);
   } break;
 
   case '{': {

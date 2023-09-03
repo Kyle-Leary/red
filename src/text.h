@@ -3,6 +3,8 @@
 #include "line.h"
 #include "whisper/array.h"
 
+#define CURR_LINE (&curr_text->lines[curr_text->y])
+
 #define NUM_LINES 1000
 #define MAX_FILE_PATH_SZ 256
 
@@ -50,3 +52,6 @@ void text_last_paragraph();
 
 // allocate a slot in the texts buffer, and return that.
 Text *text_open(char *file_path);
+
+void text_top();
+void text_bottom();

@@ -158,6 +158,8 @@ void writequit(CommandInput *cmd) {
   quit(cmd);
 }
 
+void edit(CommandInput *cmd) { text_open(cmd->joined_argv); }
+
 #undef TODO
 
 #define INSERT(name, func)                                                     \
@@ -173,6 +175,9 @@ void init_commands() {
   INSERT("write", write);
 
   INSERT("wq", writequit);
+
+  INSERT("e", edit);
+  INSERT("edit", edit);
 
   INSERT("echo", echo);
 }

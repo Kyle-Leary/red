@@ -4,6 +4,7 @@
 #include "line.h"
 #include "macros.h"
 #include "mode.h"
+#include "termbuffer.h"
 #include "text.h"
 
 #include <stdbool.h>
@@ -15,8 +16,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
-
-RenderData render_data = {0};
 
 void set_cursor_block() {
   printf("\033[2 q");
@@ -53,13 +52,6 @@ static void show_cursor() {
   fflush(stdout);
 }
 
-static void get_term_sz() {
-  struct winsize w;
-  ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-  render_data.row = w.ws_row;
-  render_data.col = w.ws_col;
-}
-
 static void clear_screen() {
   // Clear the screen
   printf("\033[2J");
@@ -67,6 +59,9 @@ static void clear_screen() {
   printf("\033[H");
   fflush(stdout);
 }
+
+RenderData render_data = {0};
+#define TB (&render_data.tb)
 
 static void pprintf(int x, int y, const char *format, ...) {
   // Move the cursor to the desired position
@@ -80,58 +75,58 @@ static void pprintf(int x, int y, const char *format, ...) {
 }
 
 static void render_text() {
-  clear_screen();
+  // clear all the garbage out of the buffer.
+  tb_clear(TB);
+
+  int text_display_rows = render_data.tb.row - 4;
+
+  tb_change_color(TB, TC_MAGENTA);
+
+  // near the bottom, on the last columns of the terminal:
+  tb_pprintf(TB, 0, 2, "-=== STATUS: [ EDITING - %s | MODE - %s ] ===-",
+             (curr_text) ? curr_text->file_path : "NONE",
+             mode_string(curr_mode));
+
+  int com_row = 2;
+
+  tb_change_color(TB, TC_GREEN);
+
+  if (curr_mode == COMMAND)
+    tb_pprintf(TB, com_row, 1, " : %50s", command.buf);
+  else
+    tb_pprintf(TB, com_row, 1, " > %50s", render_data.status_message);
 
   if (curr_text == NULL) {
-    printf("NO ACTIVE TEXT\n");
+    // if we're not inside any text buffer, simply don't render the text view.
+    tb_pprintf(TB, 5, 3, ":edit <filepath> to edit a file.");
+    tb_draw(TB);
     return;
   }
 
-  int text_display_rows = render_data.row - 4;
+  int center_offset = 10;
 
-  Text t = *curr_text;
-  int end = MIN(t.num_lines, text_display_rows + t.y);
+  int line_offset = 4;
+  int j = line_offset;
+  while (j < TB->row - 1) { // until we've run out of room:
+    int idx = curr_text->y + (j - line_offset) - center_offset;
 
-  // near the bottom, on the last columns of the terminal:
-  pprintf(0, render_data.col,
-          ANSI_BLACK ANSI_BG_RED
-          "-===STATUS: [ EDITING - %s | MODE - %s ]===-\n",
-          t.file_path, mode_string(curr_mode));
-  pprintf(0, render_data.col, " > %s\n", render_data.status_message);
-  pprintf(0, render_data.col, " : %s" ANSI_RESET "\n", command.buf);
+    if (idx >= curr_text->num_lines)
+      break;
 
-  for (int i = t.y; i < end; i++) {
-    bool is_curr_line = (i == t.y);
+    if (idx < 0) {
+    } else {
+      Line *line = &curr_text->lines[idx];
 
-#define IF_IS_CURR(str) ((is_curr_line) ? str : "")
+      tb_pprintf(TB, j, 1, "%3d: %s%s", idx + 1, line->buffer,
+                 &line->buffer[line->gap_end + 1]);
+    }
 
-    Line *line = &curr_text->lines[i];
-
-    char buf[LINE_BUF_SZ] = {0};
-    char *ptr = buf;
-    ptr += sprintf(ptr, "%s", line->buffer);
-
-    // then sprintf the stuff after the gap.
-    ptr += sprintf(ptr, "%s", &line->buffer[line->gap_end + 1]);
-
-    pprintf(0, 1 + i - t.y,
-            ANSI_BG_MAGENTA ANSI_BLACK "%3d" ANSI_RESET ANSI_YELLOW
-                                       ":" ANSI_RESET " %s\n",
-            i + 1, buf);
-
-#undef IF_IS_CURR
+    j++;
   }
 
-  int cursor_x = t.lines[t.y].gap_start + 5;
-  switch (curr_mode) {
-  case INSERT: {
-    cursor_x++;
-  } break;
-  default: {
-  } break;
-  }
+  tb_draw(TB);
 
-  move_cursor(1, cursor_x);
+  move_cursor(5 + center_offset, 6 + CURR_LINE->gap_start);
 }
 
 void status_printf(const char *format, ...) {
@@ -145,9 +140,9 @@ void status_printf(const char *format, ...) {
   va_end(args);
 }
 
-void handle_resize() { get_term_sz(); }
+void handle_resize() { tb_handle_resize(TB); }
 
-void init_render() {}
+void init_render() { tb_init(TB); }
 
 void clean_render() {
   clear_screen();

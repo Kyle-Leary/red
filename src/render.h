@@ -1,10 +1,12 @@
 #pragma once
 
+#include "termbuffer.h"
+
 #define STATUS_MSG_BUF_SZ 256
 
 typedef struct RenderData {
-  // the size of our term.
-  int row, col;
+  Termbuffer tb;
+
   char status_message[STATUS_MSG_BUF_SZ];
   int status_message_len;
 } RenderData;

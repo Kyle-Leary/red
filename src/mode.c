@@ -7,6 +7,8 @@
 #include "macros.h"
 #include "normal.h"
 #include "render.h"
+#include "text.h"
+#include "whisper/gap_buffer.h"
 #include <string.h>
 
 Mode curr_mode = NORMAL;
@@ -32,6 +34,7 @@ const char *mode_string(Mode mode) {
   } break;
   default: {
     ERROR_NO_ARGS("tried to get mode string of invalid mode.\n");
+    return NULL;
   } break;
   }
 }
@@ -60,12 +63,40 @@ void change_mode(Mode mode) {
 }
 
 void handle_input(InputEvent *e) {
+  if (!curr_text) {
+    switch (curr_mode) {
+    case COMMAND: {
+      handle_command_input(e);
+    } break;
+    default: {
+      switch (e->type) {
+      case INPUT_CHAR: {
+        switch (e->data.as_char) {
+        case ':': {
+          change_mode(COMMAND);
+        } break;
+        default:
+          break;
+        }
+      } break;
+      default:
+        break;
+      }
+    } break;
+    }
+
+    return;
+  }
+
+  // else, we're inputting in a valid text buffer.
+
   // first, handle general input stuff
   switch (e->type) {
   case INPUT_CHAR: {
     char ch = e->data.as_char;
     switch (ch) {
     case ESC_KEY: {
+      w_gb_shift_left(CURR_LINE);
       change_mode(NORMAL);
     } break;
     }

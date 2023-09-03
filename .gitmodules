@@ -1,3 +1,6 @@
 [submodule "deps/libwhisper"]
 	path = deps/libwhisper
 	url = https://github.com/Kyle-Leary/libwhisper
+[submodule "deps/libtermbuffer"]
+	path = deps/libtermbuffer
+	url = https://github.com/Kyle-Leary/libtermbuffer

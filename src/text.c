@@ -4,7 +4,11 @@
 #include "render.h"
 #include "string.h"
 
+#include "whisper/gap_buffer.h"
+
+#include <fcntl.h>
 #include <stdio.h>
+#include <unistd.h>
 
 WArray texts = {0};
 Text *curr_text = NULL;
@@ -16,7 +20,7 @@ void text_write_char(char c) {
 
   Line *line = &t->lines[t->y];
 
-  line_insert(line, c);
+  w_gb_insert(line, &c);
 
   switch (c) {
   case '\n': {
@@ -29,7 +33,7 @@ void text_write_char(char c) {
 void text_delete_char() {
   Text *t = curr_text;
   Line *line = &t->lines[t->y];
-  line_delete(line);
+  w_gb_delete(line);
 }
 
 void text_delete_line() {
@@ -44,17 +48,21 @@ void text_delete_line() {
   t->num_lines--;
 }
 
-static void internal_open_line_n(int n) {
+void _open_line_n(int n) {
   Text *t = curr_text;
-  for (int i = t->num_lines; i > n; i--) {
-    memcpy(&t->lines[i], &t->lines[i - 1], sizeof(Line));
-  }
+  char init = '\n';
   t->num_lines++;
+  Line new;
+  w_gb_create(&new, sizeof(char), LINE_BUF_SZ, &init);
 
-  memset(&t->lines[t->num_lines], 0, sizeof(Line));
-  t->lines[t->num_lines].gap_start = 1;
-  t->lines[t->num_lines].gap_end = LINE_BUF_SZ - 1;
-  t->lines[t->num_lines].buffer[0] = '\n';
+  for (int i = t->num_lines - 2; i > n + 1; i--) {
+    // copy into the slot below. push downward all the way up the lines.
+    memcpy(&t->lines[i + 1], &t->lines[i], sizeof(Line));
+  }
+
+  // copy the new line into the right spot.
+  memcpy(&t->lines[n], &new, sizeof(Line));
+
   t->y = n;
 }
 
@@ -62,29 +70,32 @@ static void internal_open_line_n(int n) {
 void text_open_line_above() {
   Text *t = curr_text;
   // don't let it go negative.
-  internal_open_line_n(MAX(t->y - 1, 0));
+  _open_line_n(MAX(t->y - 1, 0));
 }
 
 // 'o' in vi bindings
 void text_open_line() {
   Text *t = curr_text;
   // don't let it overflow the file.
-  internal_open_line_n(MIN(t->y + 1, t->num_lines));
+  _open_line_n(MIN(t->y + 1, t->num_lines));
 }
 
-static void internal_paragraph_handler(int dir) {
+void text_top() { text_move_y(-100000); }
+void text_bottom() { text_move_y(100000); }
+
+void _paragraph_handler(int dir) {
   Text *t = curr_text;
 
   text_move_y(dir);
   do {
     Line *line = &t->lines[t->y];
-    if (line->buffer[0] == '\n') {
+    if (((char *)line->buffer)[0] == '\n') {
       // empty line, stop moving unless there's another empty line right in
       // front of us.
       int next_idx = t->y + dir;
       if (IS_INSIDE(next_idx, 0, t->num_lines)) {
         Line *next_line = &t->lines[next_idx];
-        if (next_line->buffer[0] != '\n') {
+        if (((char *)next_line->buffer)[0] != '\n') {
           break;
         }
         // if it's not an empty, move again.
@@ -104,12 +115,12 @@ static void internal_paragraph_handler(int dir) {
 }
 
 // search ahead for lines whose buffers are just a single '\n'.
-void text_next_paragraph() { internal_paragraph_handler(1); }
-void text_last_paragraph() { internal_paragraph_handler(-1); }
+void text_next_paragraph() { _paragraph_handler(1); }
+void text_last_paragraph() { _paragraph_handler(-1); }
 
 void text_move_x(int by) {
   Text *t = curr_text;
-  line_shift_by(&t->lines[t->y], by);
+  w_gb_shift_by(&t->lines[t->y], by);
 }
 
 int text_move_y(int by) {
@@ -127,7 +138,7 @@ int text_move_y(int by) {
 
   if (by != 0) {
     Line *new_line = &t->lines[t->y];
-    line_go_to_beginning(new_line);
+    w_gb_go_to_beginning(new_line);
     text_move_x(old_x);
   }
   return by;
@@ -143,41 +154,76 @@ void text_save() {
 
   for (int i = 0; i < t->num_lines; i++) {
     Line *line = &t->lines[i];
-    fprintf(file, "%s%s", line->buffer, &line->buffer[line->gap_end + 1]);
+    fprintf(file, "%s%s", (char *)line->buffer,
+            (char *)&line->buffer[line->gap_end + 1]);
   }
 
   fclose(file);
 }
 
 Text *text_open(char *file_path) {
-  Text *t = w_array_get_slot_ptr(&texts, 0);
+  Text *t = NULL;
+  for (int i = 0; i < MAX_TEXTS; i++) {
+    // returns NULL if the slot is already used.
+    t = w_array_get_slot_ptr(&texts, i);
+    if (t != NULL)
+      break;
+  }
+  if (t == NULL) {
+    status_printf("No more text slots left, cannot open.");
+    return NULL;
+  }
 
   strcpy(t->file_path, file_path);
 
-  // then, read all the lines directly into the buffer.
-  FILE *file = fopen(file_path, "r");
-  int i = 0;
-  do {
-    Line *line = &t->lines[i];
-    line->gap_start = 0;
-    line->gap_end = LINE_BUF_SZ;
-
-    memset(line->buffer, 0, LINE_BUF_SZ);
-
-    if (fgets(&line->buffer[line->gap_start], LINE_BUF_SZ, file) == NULL) {
-      break;
-    } else {
-      i++;
-      // put everything to the left of the gap.
-      line->gap_start += strlen(&line->buffer[line->gap_start]);
-      line->gap_start++;
-      line_go_to_beginning(line);
+  if (access(file_path, F_OK) != 0) {
+    // file doesn't exist, create it.
+    int fd = open(file_path, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+      status_printf("Failed to create new file %s.", file_path);
+      return NULL;
     }
-  } while (1);
 
-  t->num_lines = i;
+    write(fd, "\n", 1);
+    close(fd);
 
-  // new active text, inform the rest of this module.
+    // then, init the lines of the text.
+    t->num_lines = 1;
+    char init = '\n';
+    w_gb_create(&t->lines[0], sizeof(char), LINE_BUF_SZ, &init);
+  } else {
+    // then, read all the lines directly into the buffer.
+    FILE *file = fopen(file_path, "r");
+    if (file == NULL) {
+      status_printf("Could not open %s.", file_path);
+      return NULL;
+    }
+
+    int i = 0;
+    do {
+      char buf[LINE_BUF_SZ] = {0};
+
+      Line *line = &t->lines[i];
+
+      if (fgets(buf, LINE_BUF_SZ, file) == NULL) {
+        break;
+      } else {
+        i++;
+        // init with the line buffer block of memory.
+        w_gb_create_from_block(line, sizeof(char), LINE_BUF_SZ, buf,
+                               strlen(buf));
+        w_gb_go_to_beginning(line); // put the cursor in the first position.
+      }
+    } while (1);
+
+    fclose(file);
+
+    t->num_lines = i;
+
+    // new active text, inform the rest of this module.
+    status_printf("Opened %s.\n", file_path);
+  }
+
   curr_text = t;
   return t;
 }
