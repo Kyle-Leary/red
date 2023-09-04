@@ -1,2 +1,3 @@
 -Ideps/libwhisper/api
 -Ideps/libtermbuffer/api
+-Ideps/libregex/api

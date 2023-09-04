@@ -33,8 +33,9 @@ SYMBOLS := $(OBJS)
 
 LIBWHISPER := deps/libwhisper/libwhisper.a
 LIBTERMBUFFER := deps/libtermbuffer/libtermbuffer.a
+LIBREGEX := deps/libregex/libregex.a
 
-STATIC := $(LIBWHISPER) $(LIBTERMBUFFER)
+STATIC := $(LIBWHISPER) $(LIBTERMBUFFER) $(LIBREGEX)
 # include the /api headers in each build for each submodule.
 API_DIRS := $(foreach lib,$(STATIC),$(patsubst %/,%/api,$(dir $(lib))))
 INCLUDES += $(foreach dir,$(API_DIRS),$(addprefix -I,$(dir)))

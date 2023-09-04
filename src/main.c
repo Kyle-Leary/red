@@ -1,3 +1,4 @@
+#include "filetype.h"
 #include <stdlib.h>
 #define _GNU_SOURCE
 #include <execinfo.h>
@@ -53,6 +54,7 @@ void clean_main() {
     }
   }
 
+  clean_filetypes();
   clean_render();
 }
 
@@ -79,6 +81,8 @@ void sigsegv(int sig) {
 }
 
 int main(int argc, char **argv) {
+  init_filetypes();
+
   init_render();
 
   init_commands();

@@ -1,6 +1,7 @@
 #include "render.h"
 #include "ansi.h"
 #include "commands.h"
+#include "filetype.h"
 #include "line.h"
 #include "macros.h"
 #include "mode.h"
@@ -85,11 +86,16 @@ static void render_text() {
   tb_change_color(TB, TC_BG_RED);
   tb_change_color(TB, TC_WHITE);
 
-  const char *status_str = "-=== STATUS: [ EDITING - %s | MODE - %s ] ===-";
-
-  // near the bottom, on the last columns of the terminal:
-  tb_pprintf(TB, 0, 5, status_str, (curr_text) ? curr_text->file_path : "NONE",
-             mode_string(curr_mode));
+  if (curr_text == NULL) {
+    // near the bottom, on the last columns of the terminal:
+    tb_pprintf(TB, 0, 5, "-=== STATUS: [ EDITING - %s | MODE - %s ] ===-",
+               "NONE", mode_string(curr_mode));
+  } else {
+    tb_pprintf(TB, 0, 5,
+               "-=== STATUS: [ EDITING - %s | FILETYPE - %s | MODE - %s ] ===-",
+               curr_text->file_path, get_filetype_string(curr_text->type),
+               mode_string(curr_mode));
+  }
 
   int com_row = 2;
 

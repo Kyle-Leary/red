@@ -4,3 +4,6 @@
 [submodule "deps/libtermbuffer"]
 	path = deps/libtermbuffer
 	url = https://github.com/Kyle-Leary/libtermbuffer
+[submodule "deps/libregex"]
+	path = deps/libregex
+	url = https://github.com/Kyle-Leary/libregex.git

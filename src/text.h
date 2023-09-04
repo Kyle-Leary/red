@@ -1,5 +1,6 @@
 #pragma once
 
+#include "filetype.h"
 #include "line.h"
 #include "whisper/array.h"
 
@@ -14,6 +15,8 @@
 // themselves gap buffers.
 
 typedef struct Text {
+  Filetype type;
+
   char file_path[MAX_FILE_PATH_SZ];
   Line lines[NUM_LINES];
   int num_lines;

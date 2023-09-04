@@ -1,4 +1,5 @@
 #include "text.h"
+#include "filetype.h"
 #include "line.h"
 #include "macros.h"
 #include "render.h"
@@ -223,6 +224,8 @@ Text *text_open(char *file_path) {
     // new active text, inform the rest of this module.
     status_printf("Opened %s.\n", file_path);
   }
+
+  t->type = get_filetype(file_path);
 
   curr_text = t;
   return t;
