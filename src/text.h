@@ -58,3 +58,5 @@ Text *text_open(char *file_path);
 
 void text_top();
 void text_bottom();
+
+void text_paste_buffer(const char *buffer);

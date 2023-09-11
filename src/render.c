@@ -2,6 +2,7 @@
 #include "ansi.h"
 #include "commands.h"
 #include "filetype.h"
+#include "highlighting.h"
 #include "line.h"
 #include "macros.h"
 #include "mode.h"
@@ -124,8 +125,7 @@ static void render_text() {
     if (idx >= curr_text->num_lines)
       break;
 
-    if (idx < 0) {
-    } else {
+    if (idx >= 0) {
       Line *line = &curr_text->lines[idx];
 
       int base_col = 1;
@@ -137,9 +137,7 @@ static void render_text() {
       tb_change_color(TB, TC_RESET);
       tb_change_color(TB, TC_RED);
       tb_pprintf(TB, j, base_col + 4, ": ", idx + 1);
-      tb_pprintf(TB, j, base_col + 6, "%s%s", line->buffer,
-                 &line->buffer[line->gap_end + 1]);
-      tb_change_color(TB, TC_RESET);
+      print_line(j, base_col + 7, line, TB);
     }
 
     j++;
@@ -147,7 +145,7 @@ static void render_text() {
 
   tb_draw(TB);
 
-  move_cursor(5 + center_offset, 6 + CURR_LINE->gap_start);
+  move_cursor(5 + center_offset, 8 + CURR_LINE->gap_start);
 }
 
 void status_printf(const char *format, ...) {

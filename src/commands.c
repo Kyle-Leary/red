@@ -173,18 +173,18 @@ void handle_command_input(InputEvent *e) {
 #define TODO()                                                                 \
   { status_printf("[%s] COMMAND NOT IMPLEMENTED ( YET :) )", command); }
 
-void echo(CommandInput *cmd) { status_printf("%s", cmd->joined_argv); }
+void cmd_echo(CommandInput *cmd) { status_printf("%s", cmd->joined_argv); }
 
-void write(CommandInput *cmd) { text_save(); }
+void cmd_write(CommandInput *cmd) { text_save(); }
 
-void quit(CommandInput *cmd) { should_quit = true; }
+void cmd_quit(CommandInput *cmd) { should_quit = true; }
 
-void writequit(CommandInput *cmd) {
-  write(cmd);
-  quit(cmd);
+void cmd_writequit(CommandInput *cmd) {
+  cmd_write(cmd);
+  cmd_quit(cmd);
 }
 
-void edit(CommandInput *cmd) { text_open(cmd->joined_argv); }
+void cmd_edit(CommandInput *cmd) { text_open(cmd->joined_argv); }
 
 #undef TODO
 
@@ -194,16 +194,16 @@ void edit(CommandInput *cmd) { text_open(cmd->joined_argv); }
 void init_commands() {
   w_create_cm(&command_map, sizeof(Command), 509);
 
-  INSERT("q", quit);
-  INSERT("quit", quit);
+  INSERT("q", cmd_quit);
+  INSERT("quit", cmd_quit);
 
-  INSERT("w", write);
-  INSERT("write", write);
+  INSERT("w", cmd_write);
+  INSERT("write", cmd_write);
 
-  INSERT("wq", writequit);
+  INSERT("wq", cmd_writequit);
 
-  INSERT("e", edit);
-  INSERT("edit", edit);
+  INSERT("e", cmd_edit);
+  INSERT("edit", cmd_edit);
 
-  INSERT("echo", echo);
+  INSERT("echo", cmd_echo);
 }

@@ -1,4 +1,5 @@
 #include "normal.h"
+#include "clipboard.h"
 #include "keydef.h"
 #include "line.h"
 #include "macros.h"
@@ -18,10 +19,17 @@ static void char_handler(char c) {
     text_delete_line();
     prev = '\0';
   } break;
+
+  case 'y': {
+    clip_copy_line(CLIP_DEFAULT, CURR_LINE);
+    prev = '\0';
+  } break;
+
   case ';': {
     // keep it in f-search mode.
     return;
   } break;
+
   case 'g': {
     switch (c) {
     case 'g': {
@@ -63,6 +71,11 @@ static void char_handler(char c) {
 
   case 'x': {
     text_delete_char();
+  } break;
+
+  case 'D': {
+    w_gb_delete_after_cursor(line);
+    w_gb_shift_left(line);
   } break;
 
   case 'i': {
@@ -123,6 +136,15 @@ static void char_handler(char c) {
   } break;
   case CTRL('u'): {
     text_move_y(-10);
+  } break;
+
+  case 'p': {
+    // paste the default buffer directly into the current text.
+    text_paste_buffer(clipboards[CLIP_DEFAULT]);
+  } break;
+
+  case 'y': {
+    prev = 'y';
   } break;
   }
 }

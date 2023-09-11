@@ -32,12 +32,23 @@ void text_write_char(char c) {
 }
 
 void text_delete_char() {
+  if (CURR_LINE->gap_start == 0) {
+    // we're at the beginning of the line. delete the line.
+    text_delete_line();
+    return;
+  }
+
   Text *t = curr_text;
   Line *line = &t->lines[t->y];
   w_gb_delete(line);
 }
 
 void text_delete_line() {
+  if (curr_text->num_lines == 1) {
+    // don't delete the last line.
+    return;
+  }
+
   Text *t = curr_text;
   Line *line = &t->lines[t->y];
   for (int i = t->y; i < t->num_lines - 1; i++) {
@@ -65,6 +76,25 @@ void _open_line_n(int n) {
   memcpy(&t->lines[n], &new, sizeof(Line));
 
   t->y = n;
+}
+
+void text_paste_buffer(const char *buffer) {
+  int len = strlen(buffer);
+  for (int i = 0; i < len; i++) {
+    char ch = buffer[i];
+    switch (ch) {
+    case '\n': {
+      // we don't need to write the newline, since each line already ends with a
+      // newline.
+      // open a new line and start pasting there.
+      text_open_line();
+    } break;
+
+    default: {
+      text_write_char(ch);
+    } break;
+    }
+  }
 }
 
 // 'O' in vi bindings
@@ -220,10 +250,10 @@ Text *text_open(char *file_path) {
     fclose(file);
 
     t->num_lines = i;
-
-    // new active text, inform the rest of this module.
-    status_printf("Opened %s.\n", file_path);
   }
+
+  // new active text, inform the rest of this module.
+  status_printf("Opened %s.\n", file_path);
 
   t->type = get_filetype(file_path);
 
