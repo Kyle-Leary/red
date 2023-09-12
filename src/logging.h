@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util.h"
+#include <unistd.h>
 
 extern int log_fd;
 

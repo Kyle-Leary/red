@@ -187,7 +187,7 @@ void cmd_writequit(CommandInput *cmd) {
   cmd_quit(cmd);
 }
 
-void cmd_edit(CommandInput *cmd) { text_open(cmd->joined_argv); }
+void cmd_edit(CommandInput *cmd) { text_open_file(cmd->joined_argv); }
 
 #undef TODO
 

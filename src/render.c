@@ -100,10 +100,9 @@ static void render_text() {
         mode_string(curr_mode), prev ? prev : ' ');
   }
 
-  int com_row = 2;
-
   tb_change_color(TB, TC_RESET);
-  tb_change_color(TB, TC_MAGENTA);
+
+  int com_row = 2;
 
   if (curr_mode == COMMAND)
     tb_pprintf(TB, com_row, 1, " : %50s", command.buf);

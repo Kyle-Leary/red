@@ -245,6 +245,26 @@ int text_move_y(int by) {
 void text_save() {
   Text *t = curr_text;
 
+  switch (t->type) {
+  case FTYPE_BUFFER: {
+    status_printf("Can't save nameless buffer. Open a file with :edit.");
+    return;
+  } break;
+
+  case FTYPE_FILE_BROWSER: {
+    status_printf("Can't save file browser.");
+    return;
+  } break;
+
+  default: {
+    if (!IS_INSIDE(t->type, FTYPE_UNKNOWN, FTYPE_COUNT)) {
+      status_printf("ERROR: Unknown filetype: '%d'.", t->type);
+      return;
+    }
+    // this is some normal filetype, we can save it.
+  } break;
+  }
+
   FILE *file = fopen(t->file_path, "w");
 
   char buf[LINE_BUF_SZ];
@@ -258,12 +278,12 @@ void text_save() {
             (char *)&line->buffer[line->gap_end + 1]);
   }
 
-  status_printf("wrote %d lines.", t->num_lines);
+  status_printf("Wrote '%d' lines to '%s'.", t->num_lines, t->file_path);
 
   fclose(file);
 }
 
-Text *text_open(char *file_path) {
+Text *_find_slot() {
   Text *t = NULL;
   for (int i = 0; i < MAX_TEXTS; i++) {
     // returns NULL if the slot is already used.
@@ -271,10 +291,53 @@ Text *text_open(char *file_path) {
     if (t != NULL)
       break;
   }
+
+  // TODO: dynalloc a number of buffers so that this never happens.
   if (t == NULL) {
     status_printf("No more text slots left, cannot open.");
-    return NULL;
+    ERROR_NO_ARGS("Ran out of text slots, cannot open. Increase MAX_TEXTS.");
   }
+
+  return t;
+}
+
+Text *text_open_file_browser(const char *dir_path) {
+  Text *t = _find_slot();
+
+  t->type = FTYPE_FILE_BROWSER;
+  t->num_lines = 1;
+  t->y = 0;
+
+  w_gb_create(&t->lines[0], sizeof(char), LINE_BUF_SZ);
+
+  curr_text = t;
+
+  return t;
+}
+
+static const char buffer_msg[] =
+    "This is an unnamed buffer and will not be saved.";
+
+Text *text_open_buffer() {
+  Text *t = _find_slot();
+
+  t->type = FTYPE_BUFFER;
+  t->num_lines = 1;
+  t->y = 0;
+
+  // init with a nice message on the first line so that the user doesn't
+  // accidentally start working on a garbage buffer.
+  t->num_lines = 1;
+  w_gb_create_from_block(&t->lines[0], sizeof(char), LINE_BUF_SZ, buffer_msg,
+                         sizeof(buffer_msg));
+
+  curr_text = t;
+
+  return t;
+}
+
+Text *text_open_file(const char *file_path) {
+  Text *t = _find_slot();
 
   strcpy(t->file_path, file_path);
 

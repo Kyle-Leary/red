@@ -123,6 +123,7 @@ void print_line(int row, int col, Line *l, Termbuffer *tb) {
   // SIMPLE_COLOR_ALL(TC_RED, char_literals);
 
   SIMPLE_COLOR_ALL(TC_BG_BLUE, preprocessor);
+  SIMPLE_COLOR_ALL(TC_BLACK, preprocessor);
 
   tb_pprintf(tb, row, col, "%s", line_buf);
 

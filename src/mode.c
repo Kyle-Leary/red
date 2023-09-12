@@ -4,6 +4,7 @@
 
 #include "insert.h"
 #include "keydef.h"
+#include "logging.h"
 #include "macros.h"
 #include "normal.h"
 #include "render.h"
@@ -74,28 +75,38 @@ void change_mode(Mode mode) {
 }
 
 void handle_input(InputEvent *e) {
-  if (!curr_text) {
-    switch (curr_mode) {
-    case COMMAND: {
-      handle_command_input(e);
-    } break;
-    default: {
-      switch (e->type) {
-      case INPUT_CHAR: {
-        switch (e->data.as_char) {
-        case ':': {
-          change_mode(COMMAND);
-        } break;
-        default:
-          break;
-        }
+  // inputs that can occur in any mode and any state, that don't even require an
+  // active buffer.
+  switch (curr_mode) {
+  case COMMAND: {
+    handle_command_input(e);
+  } break;
+  default: {
+    switch (e->type) {
+    case INPUT_CHAR: {
+      switch (e->data.as_char) {
+      case ':': {
+        change_mode(COMMAND);
       } break;
+
+      case ESC_KEY: {
+        change_mode(NORMAL);
+      } break;
+
+      case CTRL('p'): {
+      } break;
+
       default:
         break;
       }
     } break;
+    default:
+      break;
     }
+  } break;
+  }
 
+  if (!curr_text) { // this is as far as we get if there's no text buffer.
     return;
   }
 
@@ -130,7 +141,6 @@ void handle_input(InputEvent *e) {
   case VISUAL: {
   } break;
   case COMMAND: {
-    handle_command_input(e);
   } break;
   default: {
     ERROR_NO_ARGS("tried to handle input on an invalid mode.");

@@ -122,8 +122,13 @@ int main(int argc, char **argv) {
     }
 
     // open all other args that aren't matched with anything into a text buffer.
-    text_open(argv[0]);
+    text_open_file(argv[0]);
     BUMP();
+  }
+
+  if (texts.upper_bound == 0) {
+    // open an empty buffer if nothing else is specified on the commandline.
+    text_open_buffer();
   }
 
 #undef BUMP

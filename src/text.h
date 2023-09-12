@@ -56,7 +56,9 @@ void text_next_paragraph();
 void text_last_paragraph();
 
 // allocate a slot in the texts buffer, and return that.
-Text *text_open(char *file_path);
+Text *text_open_file(const char *file_path);
+Text *text_open_file_browser(const char *dir_path);
+Text *text_open_buffer();
 
 void text_top();
 void text_bottom();
