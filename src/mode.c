@@ -75,40 +75,40 @@ void change_mode(Mode mode) {
 }
 
 void handle_input(InputEvent *e) {
-  // inputs that can occur in any mode and any state, that don't even require an
-  // active buffer.
-  switch (curr_mode) {
-  case COMMAND: {
-    handle_command_input(e);
-  } break;
-  default: {
-    switch (e->type) {
-    case INPUT_CHAR: {
-      switch (e->data.as_char) {
-      case ':': {
-        change_mode(COMMAND);
-      } break;
-
-      case ESC_KEY: {
-        change_mode(NORMAL);
-      } break;
-
-      case CTRL('p'): {
-      } break;
-
-      default:
-        break;
-      }
+  switch (e->type) {
+  case INPUT_CHAR: {
+    switch (e->data.as_char) {
+    case ':': {
+      change_mode(COMMAND);
+      return;
     } break;
+
+    case ESC_KEY: {
+      change_mode(NORMAL);
+      return;
+    } break;
+
+    case CTRL('p'): {
+    } break;
+
     default:
       break;
     }
   } break;
+  default:
+    break;
+  }
+
+  if (curr_mode == COMMAND) {
+    handle_command_input(e);
+    return;
   }
 
   if (!curr_text) { // this is as far as we get if there's no text buffer.
     return;
   }
+
+  text_handle_input(e);
 
   // else, we're inputting in a valid text buffer.
 

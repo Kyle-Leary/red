@@ -135,10 +135,10 @@ static void char_handler(char c) {
 
   case 'x': {
     text_delete_char();
-    text_move_x(1);
   } break;
 
   case 'D': {
+    text_move_x(-1);
     text_delete_after_cursor();
   } break;
 
@@ -210,6 +210,28 @@ static void char_handler(char c) {
 
   case 'y': {
     prev = 'y';
+  } break;
+
+    // word movements
+  case 'w': {
+    text_move_word(1);
+  } break;
+  case 'W': {
+    text_move_word(1);
+  } break;
+
+  case 'e': {
+    text_move_word(1);
+  } break;
+  case 'E': {
+    text_move_word(1);
+  } break;
+
+  case 'b': {
+    text_move_word(-1);
+  } break;
+  case 'B': {
+    text_move_word(-1);
   } break;
   }
 }

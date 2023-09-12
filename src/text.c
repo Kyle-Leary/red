@@ -1,15 +1,19 @@
 #include "text.h"
 #include "filetype.h"
+#include "input_thread.h"
 #include "line.h"
 #include "logging.h"
 #include "macros.h"
 #include "render.h"
 #include "string.h"
 
+#include "whisper/array.h"
 #include "whisper/gap_buffer.h"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 WArray texts = {0};
@@ -47,6 +51,61 @@ void text_f_search(char c, int direction) {
   }
 }
 
+// move n words forward or back on the current line.
+void text_move_word(int n) {
+  Text *t = curr_text;
+  Line *line = CURR_LINE;
+
+  status_printf("text_move_word: %d\n", n);
+
+  if (n == 0) {
+    return;
+  } else if (n > 0) {
+    while (n > 0) {
+      // forward search.
+      int start = line->gap_end + 1;
+      int end = line->num_elms; // search to the right of the cursor
+      int i;
+      for (i = start + 1; i < end; i++) {
+        if (((char *)line->buffer)[i] == ' ') {
+          n--;
+          // shift past this current word.
+          w_gb_shift_to(CURR_LINE, line->gap_start + (i - start));
+          goto fwd_superbreak;
+        }
+      }
+
+      // if we've reached this point, we didn't find enough words to fulfill the
+      // n. just move the cursor to the end of the line.
+      w_gb_go_to_end(CURR_LINE);
+      break; // don't loop since we'll never find another word.
+
+    fwd_superbreak : {}
+    }
+    return;
+  } else if (n < 0) {
+    while (n < 0) {
+      // backward word search.
+      int start = 0;
+      int end = line->gap_start; // search to the left of the cursor
+      int i;
+
+      for (int i = end - 2; i >= start; i--) {
+        if (((char *)line->buffer)[i] == ' ') {
+          n++;
+          w_gb_shift_to(CURR_LINE, i);
+          goto back_superbreak;
+        }
+      }
+
+      w_gb_go_to_beginning(CURR_LINE);
+      break;
+
+    back_superbreak : {}
+    }
+  }
+}
+
 void text_write_char(char c) {
   Text *t = curr_text;
 
@@ -63,11 +122,6 @@ void text_write_char(char c) {
 }
 
 void text_delete_char() {
-  if (((char *)CURR_LINE->buffer)[0] == '\n') {
-    // TODO: delete the line here, move the rest up to the above line.
-    return;
-  }
-
   Text *t = curr_text;
   Line *line = &t->lines[t->y];
   w_gb_delete(line);
@@ -242,6 +296,25 @@ int text_move_y(int by) {
   return by;
 }
 
+void text_go_to_buffer(uint index) {
+  Text *t = curr_text;
+  Text *new_text = w_array_get(&texts, index);
+  if (new_text == NULL) {
+    status_printf("ERROR: Can't switch to buffer %d. Either out of bounds or "
+                  "uninitialized.",
+                  index);
+    return;
+  }
+
+  if (t == new_text) {
+    status_printf("WARN: Can't switch to buffer %d. Already on that buffer.",
+                  index);
+    return;
+  }
+
+  curr_text = new_text;
+}
+
 void text_save() {
   Text *t = curr_text;
 
@@ -301,14 +374,92 @@ Text *_find_slot() {
   return t;
 }
 
+static const char *file_browser_text =
+    "File Browser, select a file to open with :edit <file path>";
+
 Text *text_open_file_browser(const char *dir_path) {
   Text *t = _find_slot();
 
   t->type = FTYPE_FILE_BROWSER;
   t->num_lines = 1;
   t->y = 0;
+  w_gb_create_from_block(&t->lines[0], sizeof(char), LINE_BUF_SZ,
+                         file_browser_text, strlen(file_browser_text));
 
-  w_gb_create(&t->lines[0], sizeof(char), LINE_BUF_SZ);
+  strncpy(t->file_path, dir_path, MAX_FILE_PATH_SZ);
+
+  DIR *dir = opendir(dir_path);
+  if (dir == NULL) {
+    status_printf("ERROR: Could not open directory '%s'.", dir_path);
+    w_array_delete_ptr(&texts, t);
+    return NULL;
+  }
+
+  struct dirent *ent;
+  while ((ent = readdir(dir)) != NULL) {
+    w_gb_create_from_block(&t->lines[t->num_lines], sizeof(char), LINE_BUF_SZ,
+                           ent->d_name, strlen(ent->d_name));
+    t->num_lines++;
+  }
+
+  curr_text = t;
+
+  return t;
+}
+
+static const char *buffer_viewer_text =
+    "Buffer Viewer, select a buffer to go to with :buffer <buffer "
+    "index>/:b "
+    "<buffer index>";
+
+#define BV_TAB "  "
+
+Text *text_open_buffer_viewer() {
+  Text *t = _find_slot();
+
+  t->type = FTYPE_BUFFER_VIEWER;
+  t->num_lines = 0;
+  w_gb_create_from_block(&t->lines[0], sizeof(char), LINE_BUF_SZ,
+                         buffer_viewer_text, strlen(buffer_viewer_text));
+  t->num_lines++;
+
+  // render out all the buffers into selectable lines
+  for (int i = 0; i < MAX_TEXTS; i++) {
+    Text *text = w_array_get(&texts, i);
+    if (text == NULL)
+      continue;
+
+    char buf[LINE_BUF_SZ];
+    switch (text->type) {
+    case FTYPE_BUFFER: {
+      snprintf(buf, LINE_BUF_SZ, BV_TAB "%d: BUFFER", i);
+    } break;
+
+    case FTYPE_FILE_BROWSER: {
+      snprintf(buf, LINE_BUF_SZ, BV_TAB "%d: FILE BROWSER at path: '%s'", i,
+               text->file_path);
+    } break;
+
+    case FTYPE_BUFFER_VIEWER: {
+      snprintf(buf, LINE_BUF_SZ, BV_TAB "%d: BUFFER VIEWER", i);
+    } break;
+
+    default: {
+      if (IS_INSIDE(text->type, FTYPE_UNKNOWN, FTYPE_COUNT)) {
+        snprintf(buf, LINE_BUF_SZ, BV_TAB "%d: NORMAL FILE BUFFER: %s", i,
+                 text->file_path);
+        break;
+      } else {
+        snprintf(buf, LINE_BUF_SZ, BV_TAB "%d: UNKNOWN BUFFER TYPE: %s", i,
+                 text->file_path);
+      }
+    } break;
+    }
+
+    w_gb_create_from_block(&t->lines[t->num_lines], sizeof(char), LINE_BUF_SZ,
+                           buf, strlen(buf));
+    t->num_lines++;
+  }
 
   curr_text = t;
 
@@ -394,3 +545,87 @@ Text *text_open_file(const char *file_path) {
   curr_text = t;
   return t;
 }
+
+void text_handle_input(InputEvent *e) {
+  switch (curr_text->type) {
+  case FTYPE_FILE_BROWSER: {
+    switch (e->type) {
+    case INPUT_CHAR: {
+      switch (e->data.as_char) {
+      case '\n': {
+        // open the file/directory at the cursor.
+        char path_buf[LINE_BUF_SZ];
+        sprintf(path_buf, "%s/%s%s", curr_text->file_path,
+                (char *)CURR_LINE->buffer,
+                &((char *)CURR_LINE->buffer)[CURR_LINE->gap_end + 1]);
+
+        Text *old_text = curr_text;
+
+        // check if the file points to a directory or normal file.
+        struct stat s;
+        if (stat(path_buf, &s) == 0) {
+          if (s.st_mode & S_IFDIR) {
+            // it's a directory, open it.
+            text_open_file_browser(path_buf);
+          } else if (s.st_mode & S_IFREG) {
+            // it's a normal file, open it.
+            text_open_file(path_buf);
+          }
+        }
+
+        if (old_text != curr_text) {
+          // if it actually changed, free the old text.
+          w_array_delete_ptr(&texts, old_text);
+        }
+        break;
+      }
+      }
+      break;
+
+    default: {
+    } break;
+    } break;
+    }
+    break;
+
+  case FTYPE_BUFFER: {
+  } break;
+
+  case FTYPE_BUFFER_VIEWER: {
+    switch (e->type) {
+    case INPUT_CHAR: {
+      switch (e->data.as_char) {
+      case '\n': {
+        // open the buffer at the cursor.
+        uint index;
+        sscanf((char *)CURR_LINE->buffer, BV_TAB "%d", &index);
+        text_go_to_buffer(index);
+      } break;
+      }
+    } break;
+
+    default: {
+    } break;
+    }
+    break;
+
+  default: {
+  } break;
+  }
+  }
+  }
+}
+
+void text_clean() {
+  // free all lines and all text.
+  for (int i = 0; i < texts.upper_bound; i++) {
+    Text *t = w_array_get_slot_ptr(&texts, i);
+    if (t != NULL) {
+      for (int j = 0; j < t->num_lines; j++) {
+        w_gb_free(&t->lines[j]);
+      }
+    }
+  }
+}
+
+#undef BV_TAB

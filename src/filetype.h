@@ -3,9 +3,12 @@
 typedef enum Filetype {
   FTYPE_UNKNOWN = 0,
 
+  // util file types.
   FTYPE_FILE_BROWSER,
   FTYPE_BUFFER, // generic buffer, cannot save.
+  FTYPE_BUFFER_VIEWER,
 
+  // actual file types.
   FTYPE_C, // '*.c' files.
 
   FTYPE_COUNT,

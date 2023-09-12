@@ -18,6 +18,10 @@ void init_filetypes() {
   }
 
   INSERT("c", FTYPE_C);
+  INSERT("buffer", FTYPE_BUFFER);
+  INSERT("buffer viewer", FTYPE_BUFFER_VIEWER);
+  INSERT("browser", FTYPE_FILE_BROWSER);
+  INSERT("unknown", FTYPE_UNKNOWN);
 }
 
 char *get_filetype_string(Filetype ft) { return filetype_strings[ft]; }

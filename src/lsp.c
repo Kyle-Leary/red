@@ -1,4 +1,5 @@
 #include "lsp.h"
+#include "sig.h"
 #include "string.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,8 @@ LSPQueue lsp = {
 
 // pass in an LSP* directly to the thread.
 void *lsp_thread(void *data) {
+  thread_sig_setup();
+
   LSP *lsp = (LSP *)data;
 
 #define IN (lsp->pipe_in)

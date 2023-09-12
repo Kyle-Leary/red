@@ -189,6 +189,25 @@ void cmd_writequit(CommandInput *cmd) {
 
 void cmd_edit(CommandInput *cmd) { text_open_file(cmd->joined_argv); }
 
+void cmd_file_browser(CommandInput *cmd) {
+  if (cmd->argc < 2) {
+    status_printf(
+        "No path specified, opening file browser in current directory.");
+    text_open_file_browser(".");
+    return;
+  }
+
+  text_open_file_browser(cmd->argv[1]);
+}
+
+void cmd_buffer_viewer(CommandInput *cmd) { text_open_buffer_viewer(); }
+
+void cmd_buffer(CommandInput *cmd) {
+  uint index = atoi(cmd->joined_argv);
+  status_printf("Going to buffer index '%d'.", index);
+  text_go_to_buffer(index);
+}
+
 #undef TODO
 
 #define INSERT(name, func)                                                     \
@@ -199,6 +218,16 @@ void init_commands() {
 
   INSERT("q", cmd_quit);
   INSERT("quit", cmd_quit);
+
+  INSERT("f", cmd_file_browser);
+  INSERT("file", cmd_file_browser);
+  INSERT("file_browser", cmd_file_browser);
+
+  INSERT("b", cmd_buffer);
+  INSERT("buffer", cmd_buffer);
+
+  INSERT("bv", cmd_buffer_viewer);
+  INSERT("buffer_viewer", cmd_buffer_viewer);
 
   INSERT("w", cmd_write);
   INSERT("write", cmd_write);

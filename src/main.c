@@ -69,6 +69,7 @@ void clean_main() {
     }
   }
 
+  text_clean();
   clean_filetypes();
   clean_highlighting();
   clean_render();
@@ -79,9 +80,12 @@ void clean_main() {
 void sigwinch(int num) {
   // the terminal emu/window has been resized.
   handle_resize();
+  render();
 }
 
 int main(int argc, char **argv) {
+  thread_sig_setup();
+
   log_init();
 
   printf("not logged\n");
@@ -126,7 +130,7 @@ int main(int argc, char **argv) {
     BUMP();
   }
 
-  if (texts.upper_bound == 0) {
+  if (curr_text == NULL) {
     // open an empty buffer if nothing else is specified on the commandline.
     text_open_buffer();
   }
@@ -134,8 +138,6 @@ int main(int argc, char **argv) {
 #undef BUMP
 
   signal(SIGWINCH, sigwinch);
-
-  thread_sig_setup();
 
   render();
 

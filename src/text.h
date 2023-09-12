@@ -1,6 +1,7 @@
 #pragma once
 
 #include "filetype.h"
+#include "input_thread.h"
 #include "line.h"
 #include "whisper/array.h"
 
@@ -49,16 +50,25 @@ void text_delete_line(int line_idx);
 
 void text_f_search(char c, int direction);
 
+void text_move_word(int n);
+
 void text_open_line_above();
 void text_open_line();
 
 void text_next_paragraph();
 void text_last_paragraph();
 
+void text_go_to_buffer(uint index);
+
 // allocate a slot in the texts buffer, and return that.
+// all of these text_open methods also implicitly set the curr_text pointer, and
+// "open" that buffer in the main editing context.
 Text *text_open_file(const char *file_path);
 Text *text_open_file_browser(const char *dir_path);
 Text *text_open_buffer();
+Text *text_open_buffer_viewer();
+
+void text_handle_input(InputEvent *e);
 
 void text_top();
 void text_bottom();
@@ -68,3 +78,5 @@ void text_paste_buffer(const char *buffer);
 void text_delete_after_cursor();
 
 void text_return();
+
+void text_clean();
