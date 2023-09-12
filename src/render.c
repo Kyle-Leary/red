@@ -104,6 +104,10 @@ static void render_text() {
 
   int com_row = 2;
 
+  if (search.is_searching) {
+    tb_pprintf(TB, 1, 1, " /%s", search.pattern_buf);
+  }
+
   if (curr_mode == COMMAND)
     tb_pprintf(TB, com_row, 1, " : %50s", command.buf);
   else

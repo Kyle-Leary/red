@@ -4,8 +4,11 @@
 #include "line.h"
 #include "macros.h"
 #include "mode.h"
+#include "render.h"
 #include "text.h"
 #include "whisper/gap_buffer.h"
+
+#include "libregex.h"
 
 // the previous char pressed. NULL if there's no significant char right before
 // us. this is used to implement the "combo" type commands, like dd or yi.
@@ -16,12 +19,116 @@ typedef struct FSearchState {
   int direction; // positive or negative for forward or backward.
 } FSearchState;
 
+SearchState search = {0};
+
 static FSearchState f_search = {0};
 
 static void _do_f_search() { text_f_search(f_search.c, f_search.direction); }
 
+static void _enter_search(int direction) {
+  search.is_searching = 1;
+  search.direction = direction;
+
+  search.pattern_buf[0] = '\0';
+  search.pattern_buf_len = 0;
+}
+
+static void _do_search(int direction_modifier) {
+  int final_direction = search.direction * direction_modifier;
+
+  int starting_search_row = curr_text->y;
+  int starting_search_col = CURR_LINE->gap_start - 1;
+
+  if (final_direction == 1) {
+    curr_text->y = starting_search_row;
+    CURR_LINE->gap_start = starting_search_col + 1;
+
+    char line_buf[LINE_BUF_SZ];
+
+    // go down the whole text and run regex matches on each line until we either
+    // find a match or don't get anything.
+    while (curr_text->y < curr_text->num_lines) {
+      // match with the whole line.
+      sprintf(line_buf, "%c%s",
+              ((char *)CURR_LINE->buffer)[CURR_LINE->gap_start - 1],
+              &((char *)CURR_LINE->buffer)[CURR_LINE->gap_end + 1]);
+
+      Match match_buf[16];
+      int num_matches =
+          re_get_matches(line_buf, search.cached_compile, match_buf);
+
+      if (num_matches > 0) {
+        w_gb_shift_to(CURR_LINE, match_buf[0].start);
+        // TODO: highlight the match?
+        return;
+      }
+
+      curr_text->y++;
+    }
+
+    status_printf("No matches found for pattern '%s'.\n", search.pattern_buf);
+  } else if (final_direction == -1) {
+    curr_text->y = starting_search_row;
+    CURR_LINE->gap_start = starting_search_col + 1;
+
+    char line_buf[LINE_BUF_SZ];
+
+    // go down the whole text and run regex matches on each line until we either
+    // find a match or don't get anything.
+    while (curr_text->y > 0) {
+      // match with the whole line.
+      sprintf(line_buf, "%c%s",
+              ((char *)CURR_LINE->buffer)[CURR_LINE->gap_start - 1],
+              &((char *)CURR_LINE->buffer)[CURR_LINE->gap_end + 1]);
+
+      Match match_buf[16];
+      int num_matches =
+          re_get_matches(line_buf, search.cached_compile, match_buf);
+
+      if (num_matches > 0) {
+        w_gb_shift_to(CURR_LINE, match_buf[0].start);
+        // TODO: highlight the match?
+        return;
+      }
+
+      curr_text->y--;
+    }
+
+    status_printf("No matches found for pattern '%s'.\n", search.pattern_buf);
+  }
+}
+
 static void char_handler(char c) {
   Line *line = &curr_text->lines[curr_text->y];
+
+  if (search.is_searching) {
+    if (c == '\n' ||
+        c == ESC_KEY) { // quit the search, but keep around the pattern.
+      search.is_searching = 0;
+      return;
+    }
+
+    if (c == '\b') {
+      if (search.pattern_buf_len > 0) {
+        search.pattern_buf_len--;
+        search.pattern_buf[search.pattern_buf_len] = '\0';
+      }
+    } else {
+      search.pattern_buf[search.pattern_buf_len] = c;
+      search.pattern_buf_len++;
+      search.pattern_buf[search.pattern_buf_len] = '\0';
+    }
+
+    // then, update the regex pattern and try to find the next match.
+    if (search.cached_compile != NULL) {
+      re_free(search.cached_compile);
+    }
+    search.cached_compile = re_compile(search.pattern_buf);
+
+    _do_search(search.direction);
+
+    return; // ignore all other commands if we're staying in search mode.
+  }
 
   switch (prev) {
   case 'd': {
@@ -123,6 +230,23 @@ static void char_handler(char c) {
   case 'F': {
     f_search.direction = -1;
     prev = c;
+  } break;
+
+  case '/': {
+    _enter_search(1);
+  } break;
+  case '?': {
+    _enter_search(-1);
+  } break;
+
+  case 'n': {
+    text_move_word(1);
+    _do_search(1 * search.direction);
+  } break;
+  case 'N': {
+    // just the opposite of the current search direction.
+    text_move_word(-1);
+    _do_search(-1 * search.direction);
   } break;
 
   case '$': {

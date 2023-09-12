@@ -54,54 +54,47 @@ void text_f_search(char c, int direction) {
 // move n words forward or back on the current line.
 void text_move_word(int n) {
   Text *t = curr_text;
-  Line *line = CURR_LINE;
-
-  status_printf("text_move_word: %d\n", n);
 
   if (n == 0) {
     return;
   } else if (n > 0) {
+    // forward word search.
+    w_gb_shift_right(CURR_LINE);
     while (n > 0) {
-      // forward search.
-      int start = line->gap_end + 1;
-      int end = line->num_elms; // search to the right of the cursor
-      int i;
-      for (i = start + 1; i < end; i++) {
-        if (((char *)line->buffer)[i] == ' ') {
-          n--;
-          // shift past this current word.
-          w_gb_shift_to(CURR_LINE, line->gap_start + (i - start));
-          goto fwd_superbreak;
-        }
+      if (*(char *)w_gb_read(CURR_LINE) == ' ') {
+        n--;
       }
 
-      // if we've reached this point, we didn't find enough words to fulfill the
-      // n. just move the cursor to the end of the line.
-      w_gb_go_to_end(CURR_LINE);
-      break; // don't loop since we'll never find another word.
+      if (w_gb_shift_right(CURR_LINE) != 0) {
+        // if we can't move right anymore, go to the next line.
+        if (curr_text->y == curr_text->num_lines - 1) {
+          w_gb_go_to_end(CURR_LINE);
+          break;
+        }
 
-    fwd_superbreak : {}
+        n--;
+        text_move_y(1);
+        w_gb_go_to_beginning(CURR_LINE);
+      }
     }
-    return;
   } else if (n < 0) {
+    // backward word search.
+    w_gb_shift_left(CURR_LINE);
     while (n < 0) {
-      // backward word search.
-      int start = 0;
-      int end = line->gap_start; // search to the left of the cursor
-      int i;
-
-      for (int i = end - 2; i >= start; i--) {
-        if (((char *)line->buffer)[i] == ' ') {
-          n++;
-          w_gb_shift_to(CURR_LINE, i);
-          goto back_superbreak;
-        }
+      if (*(char *)w_gb_read(CURR_LINE) == ' ') {
+        n++;
       }
 
-      w_gb_go_to_beginning(CURR_LINE);
-      break;
+      if (w_gb_shift_left(CURR_LINE) != 0) {
+        if (curr_text->y == 0) {
+          w_gb_go_to_beginning(CURR_LINE);
+          break;
+        }
 
-    back_superbreak : {}
+        n++;
+        text_move_y(-1);
+        w_gb_go_to_end(CURR_LINE);
+      }
     }
   }
 }
