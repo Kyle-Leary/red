@@ -45,7 +45,9 @@ void text_write_char(char c);
 
 // both operate at the cursor.
 void text_delete_char();
-void text_delete_line();
+void text_delete_line(int line_idx);
+
+void text_f_search(char c, int direction);
 
 void text_open_line_above();
 void text_open_line();
@@ -60,3 +62,7 @@ void text_top();
 void text_bottom();
 
 void text_paste_buffer(const char *buffer);
+
+void text_delete_after_cursor();
+
+void text_return();

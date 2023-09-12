@@ -12,6 +12,7 @@ typedef struct CommandBuffer {
 extern CommandBuffer command;
 
 void command_run(char *command, int len);
+void command_input_flush();
 
 void handle_command_input(InputEvent *e);
 

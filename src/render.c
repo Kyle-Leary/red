@@ -6,6 +6,7 @@
 #include "line.h"
 #include "macros.h"
 #include "mode.h"
+#include "normal.h"
 #include "termbuffer.h"
 #include "text.h"
 
@@ -89,13 +90,14 @@ static void render_text() {
 
   if (curr_text == NULL) {
     // near the bottom, on the last columns of the terminal:
-    tb_pprintf(TB, 0, 5, "-=== STATUS: [ EDITING - %s | MODE - %s ] ===-",
-               "NONE", mode_string(curr_mode));
+    tb_pprintf(TB, 0, 5, "-=== STATUS: [ EDITING - %s | MODE - %s ] %c ===-",
+               "NONE", mode_string(curr_mode), prev ? prev : ' ');
   } else {
-    tb_pprintf(TB, 0, 5,
-               "-=== STATUS: [ EDITING - %s | FILETYPE - %s | MODE - %s ] ===-",
-               curr_text->file_path, get_filetype_string(curr_text->type),
-               mode_string(curr_mode));
+    tb_pprintf(
+        TB, 0, 5,
+        "-=== STATUS: [ EDITING - %s | FILETYPE - %s | MODE - %s ] %c ===-",
+        curr_text->file_path, get_filetype_string(curr_text->type),
+        mode_string(curr_mode), prev ? prev : ' ');
   }
 
   int com_row = 2;

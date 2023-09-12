@@ -9,24 +9,73 @@
 
 // the previous char pressed. NULL if there's no significant char right before
 // us. this is used to implement the "combo" type commands, like dd or yi.
-static char prev = '\0';
+char prev = '\0';
+
+typedef struct FSearchState {
+  char c;        // '\0' means we haven't searched yet.
+  int direction; // positive or negative for forward or backward.
+} FSearchState;
+
+static FSearchState f_search = {0};
+
+static void _do_f_search() { text_f_search(f_search.c, f_search.direction); }
 
 static void char_handler(char c) {
   Line *line = &curr_text->lines[curr_text->y];
 
   switch (prev) {
   case 'd': {
-    text_delete_line();
-    prev = '\0';
+    switch (c) {
+    case 'd': {
+      text_delete_line(curr_text->y);
+      prev = '\0';
+      return;
+    } break;
+
+    case 'h': {
+    } break;
+    case 'j': {
+      text_delete_line(curr_text->y);
+      text_delete_line(curr_text->y);
+      prev = '\0';
+      return;
+    } break;
+    case 'k': {
+      text_delete_line(curr_text->y);
+      text_move_y(-1);
+      text_delete_line(curr_text->y);
+      prev = '\0';
+      return;
+    } break;
+    case 'l': {
+    } break;
+
+    default: {
+      prev = '\0';
+    } break;
+    }
   } break;
 
   case 'y': {
-    clip_copy_line(CLIP_DEFAULT, CURR_LINE);
-    prev = '\0';
+    switch (c) {
+    case 'y': {
+      clip_copy_line(CLIP_DEFAULT, CURR_LINE);
+      prev = '\0';
+      return;
+    } break;
+
+    default: {
+      prev = '\0';
+    } break;
+    }
   } break;
 
-  case ';': {
-    // keep it in f-search mode.
+    // this works for either direction.
+  case 'F':
+  case 'f': {
+    f_search.c = c;
+    _do_f_search();
+    prev = '\0';
     return;
   } break;
 
@@ -34,12 +83,19 @@ static void char_handler(char c) {
     switch (c) {
     case 'g': {
       text_top();
+      prev = '\0';
+      return;
+    } break;
+
+    default: {
+      prev = '\0';
     } break;
     }
-
-    prev = '\0';
   } break;
+
   default: {
+    // this prev is not registered to be handled, so just let it propagate into
+    // the normal loop.
     prev = '\0';
   } break;
   }
@@ -54,10 +110,18 @@ static void char_handler(char c) {
     prev = c;
   } break;
 
+  case ';': {
+    if (f_search.c != '\0') {
+      _do_f_search();
+    }
+  } break;
+
   case 'f': {
+    f_search.direction = 1;
     prev = c;
   } break;
   case 'F': {
+    f_search.direction = -1;
     prev = c;
   } break;
 
@@ -74,8 +138,7 @@ static void char_handler(char c) {
   } break;
 
   case 'D': {
-    w_gb_delete_after_cursor(line);
-    w_gb_shift_left(line);
+    text_delete_after_cursor();
   } break;
 
   case 'i': {
@@ -85,6 +148,7 @@ static void char_handler(char c) {
     w_gb_go_to_beginning(line);
     change_mode(INSERT);
   } break;
+
   case 'a': {
     w_gb_shift_right(line);
     change_mode(INSERT);

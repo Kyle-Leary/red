@@ -9,12 +9,13 @@ void handle_insert_input(InputEvent *e) {
   case INPUT_CHAR: {
     switch (e->data.as_char) {
     case BACKSPACE: {
+      text_move_x(-1);
       text_delete_char();
+      text_move_x(1);
     } break;
 
     case '\n': {
-      // open new line below.
-      text_open_line();
+      text_return();
     } break;
 
     case '\t': {

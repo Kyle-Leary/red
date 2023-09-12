@@ -40,6 +40,7 @@ const char *mode_string(Mode mode) {
 }
 
 void change_mode(Mode mode) {
+
   switch (mode) {
   case NORMAL: {
     set_cursor_block();
@@ -58,6 +59,16 @@ void change_mode(Mode mode) {
   }
 
   if (curr_mode != mode) {
+    // handler when leaving a mode.
+    switch (curr_mode) {
+    case COMMAND: {
+      command_input_flush();
+    } break;
+    default:
+      break;
+    }
+
+    // then just update the mode state.
     curr_mode = mode;
   }
 }

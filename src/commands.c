@@ -130,6 +130,11 @@ void command_run(char *command, int len) {
   }
 }
 
+void command_input_flush() {
+  memset(command.buf, 0, STATUS_MSG_BUF_SZ);
+  command.len = 0;
+}
+
 void handle_command_input(InputEvent *e) {
   switch (e->type) {
   case INPUT_CHAR: {
@@ -149,9 +154,7 @@ void handle_command_input(InputEvent *e) {
       // run directly from the status message buffer.
       command_run(command.buf, command.len);
       change_mode(NORMAL);
-      // blank out the buffer.
-      memset(command.buf, 0, STATUS_MSG_BUF_SZ);
-      command.len = 0;
+      command_input_flush();
     } break;
 
     default: {

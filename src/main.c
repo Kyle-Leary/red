@@ -1,5 +1,7 @@
 #include "filetype.h"
 #include "highlighting.h"
+#include "logging.h"
+#include "sig.h"
 #include <stdlib.h>
 #define _GNU_SOURCE
 #include <execinfo.h>
@@ -29,6 +31,8 @@
 // termios - Terminal IO Settings.
 #include <termios.h>
 
+#include "main.h"
+
 bool should_quit = false;
 
 // write something into stdin every once in a while.
@@ -40,12 +44,22 @@ void *testing_thread(void *data) {
   return NULL;
 }
 
+pthread_t main_thread;
+
 pthread_t test_thread = 0;
 bool is_using_test_thread = false;
 
 pthread_t input_thread_handle;
 
+static int has_cleaned = 0;
+
 void clean_main() {
+  if (has_cleaned) {
+    return;
+  }
+
+  has_cleaned = 1;
+
   {
     pthread_cancel(input_thread_handle);
     input_thread_clean();
@@ -58,6 +72,7 @@ void clean_main() {
   clean_filetypes();
   clean_highlighting();
   clean_render();
+  log_clean();
 }
 
 // define signal handlers.
@@ -66,23 +81,17 @@ void sigwinch(int num) {
   handle_resize();
 }
 
-void sigsegv(int sig) {
-  void *array[10];
-  size_t size;
-
-  clean_main();
-
-  // Get void*'s for all entries on the stack
-  size = backtrace(array, 10);
-
-  system("clear");
-  fprintf(stderr, "\n\nSEGFAULT sig %d: stacktrace - \n", sig);
-  backtrace_symbols_fd(array, size, STDERR_FILENO);
-
-  exit(1);
-}
-
 int main(int argc, char **argv) {
+  log_init();
+
+  printf("not logged\n");
+  LOG({ printf("logging is maybe working\n"); });
+  printf("still no\n");
+  LOG({ printf("logging is probably working\n"); });
+  printf("not anymore\n");
+
+  main_thread = pthread_self();
+
   init_filetypes();
   init_highlighting();
   init_render();
@@ -106,7 +115,6 @@ int main(int argc, char **argv) {
   BUMP();
 
   while (argc > 0) {
-
     if (strncmp(argv[0], "--test", 6) == 0) {
       pthread_create(&test_thread, NULL, testing_thread, NULL);
       is_using_test_thread = true;
@@ -120,10 +128,9 @@ int main(int argc, char **argv) {
 
 #undef BUMP
 
-  { // setup general term stuff
-    signal(SIGWINCH, sigwinch);
-    signal(SIGSEGV, sigsegv);
-  }
+  signal(SIGWINCH, sigwinch);
+
+  thread_sig_setup();
 
   render();
 

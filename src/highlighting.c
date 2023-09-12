@@ -1,40 +1,89 @@
 #include "highlighting.h"
 #include "libregex.h"
 #include "line.h"
+#include "logging.h"
 #include "render.h"
 #include "termbuffer.h"
+#include "util.h"
+#include "whisper/array.h"
+#include "whisper/colmap.h"
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-static REComp *re_comments = NULL;
+WColMap re_map;
 
-void init_highlighting() { re_comments = re_compile("//.*"); }
+#define RE_BUF_SZ 509
 
-void clean_highlighting() {}
+// will crash if not found.
+#define REGEX(name_lit) *((REComp **)w_cm_get(&re_map, name_lit))
+#define MATCH(name, line, max_matches)                                         \
+  Match name##_matches[max_matches];                                           \
+  int num_##name = re_get_matches(line_buf, REGEX(#name), name##_matches);
+
+void init_highlighting() {
+
+  // the buffer is calloced, so all pointers will be NULL if unused.
+  w_create_cm(&re_map, sizeof(REComp *), RE_BUF_SZ);
+
+#define DEFINE_REGEX(name_lit, pattern_lit)                                    \
+  {                                                                            \
+    REComp *re = re_compile(pattern_lit);                                      \
+    w_cm_insert(&re_map, name_lit, &re);                                       \
+  }
+
+  DEFINE_REGEX("comments", "//.*");
+  DEFINE_REGEX("int", "int ");
+  DEFINE_REGEX("char", "char ");
+
+#undef DEFINE_REGEX
+}
+
+void clean_highlighting() {
+  // try to free every bucket.
+  for (int i = 0; i < RE_BUF_SZ; i++) {
+    REComp **r = w_array_get(&re_map, i);
+    if (r) {
+      // LOG({ re_debug_print(r); });
+
+      re_free(*r);
+    }
+  }
+
+  w_free_cm(&re_map);
+}
+
+#define COLOR_MATCHES(color, match)                                            \
+  {                                                                            \
+    tb_change_positional_color(tb, color, row, col + match->start - 1);        \
+    tb_change_positional_color(tb, TC_RESET, row, col + match->end);           \
+  }
 
 void print_line(int row, int col, Line *l, Termbuffer *tb) {
   char line_buf[LINE_BUF_SZ];
   sprintf(line_buf, "%s%s", (char *)l->buffer,
           &((char *)l->buffer)[l->gap_end + 1]);
 
-  char *_line_buf = line_buf;
+  int line_idx = 0;
 
-  tb_change_color(tb, TC_RESET);
-
-  Match comments[16];
-  int num_comments = re_get_matches(line_buf, re_comments, comments);
-  for (int i = 0; i < num_comments; i++) {
-    Match *m = &comments[i];
-
-    // write the buffer up to the first part of the comment.
-    col += tb_write(tb, row, col, m->start, _line_buf);
-    _line_buf += m->start;
-
-    // then, write the rest with the changed color.
-    tb_change_color(tb, TC_CYAN);
+  MATCH(comments, line_buf, 8);
+  if (num_comments >= 1) {
+    // only consider the first match, that's the only one that matters.
+    Match *m = &comments_matches[0];
+    COLOR_MATCHES(TC_CYAN, m)
   }
 
-  tb_pprintf(tb, row, col, "%s%s", l->buffer, &l->buffer[l->gap_end + 1]);
+  MATCH(int, line_buf, 8);
+  for (int i = 0; i < num_int; i++) {
+    Match *m = &int_matches[i];
+    COLOR_MATCHES(TC_BLUE, m)
+  }
   tb_change_color(tb, TC_RESET);
+
+  tb_pprintf(tb, row, col, "%s", line_buf);
 }
+
+#undef REGEX
+#undef MATCH

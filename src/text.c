@@ -1,6 +1,7 @@
 #include "text.h"
 #include "filetype.h"
 #include "line.h"
+#include "logging.h"
 #include "macros.h"
 #include "render.h"
 #include "string.h"
@@ -15,6 +16,36 @@ WArray texts = {0};
 Text *curr_text = NULL;
 
 void texts_init() { w_make_array(&texts, sizeof(Text), MAX_TEXTS); }
+
+void text_f_search(char c, int direction) {
+  Text *t = curr_text;
+  Line *line = &t->lines[t->y];
+
+  if (direction > 0) {
+    // forward search.
+    int start = line->gap_end + 1;
+    int end = line->num_elms; // search to the right of the cursor
+
+    // don't search on the current character.
+    for (int i = start + 1; i < end; i++) {
+      if (((char *)line->buffer)[i] == c) {
+        w_gb_shift_to(CURR_LINE, line->gap_start + (i - start));
+        return;
+      }
+    }
+  } else {
+    // backward search.
+    int start = 0;
+    int end = line->gap_start; // search to the left of the cursor
+
+    for (int i = end - 2; i >= start; i--) {
+      if (((char *)line->buffer)[i] == c) {
+        w_gb_shift_to(CURR_LINE, i);
+        return;
+      }
+    }
+  }
+}
 
 void text_write_char(char c) {
   Text *t = curr_text;
@@ -32,9 +63,8 @@ void text_write_char(char c) {
 }
 
 void text_delete_char() {
-  if (CURR_LINE->gap_start == 0) {
-    // we're at the beginning of the line. delete the line.
-    text_delete_line();
+  if (((char *)CURR_LINE->buffer)[0] == '\n') {
+    // TODO: delete the line here, move the rest up to the above line.
     return;
   }
 
@@ -43,39 +73,50 @@ void text_delete_char() {
   w_gb_delete(line);
 }
 
-void text_delete_line() {
+void text_delete_line(int line_idx) {
   if (curr_text->num_lines == 1) {
     // don't delete the last line.
     return;
   }
 
   Text *t = curr_text;
-  Line *line = &t->lines[t->y];
-  for (int i = t->y; i < t->num_lines - 1; i++) {
+  Line *line = &t->lines[line_idx];
+  for (int i = line_idx; i < t->num_lines - 1; i++) {
     // swap bottom and top lines. this ends up deleting the first one, which is
     // the one our cursor is currently over.
     memcpy(&t->lines[i], &t->lines[i + 1], sizeof(Line));
   }
   memset(&t->lines[t->num_lines], 0, sizeof(Line));
   t->num_lines--;
+
+  // decide how our current position changes based on the new deletion.
+  if (line_idx < t->y) {
+    t->y--;
+  } else if (line_idx > t->y) {
+    // it's above us, nothing changes.
+  } else {
+    t->y = CLAMP(t->y, t->y, t->num_lines - 1);
+  }
 }
 
-void _open_line_n(int n) {
+void _open_line_n(int line_idx) {
+  log_printf("opening line at %d\n", line_idx);
+
   Text *t = curr_text;
   char init = '\n';
   t->num_lines++;
   Line new;
   w_gb_create(&new, sizeof(char), LINE_BUF_SZ, &init);
 
-  for (int i = t->num_lines - 2; i > n + 1; i--) {
+  for (int i = t->num_lines - 2; i > line_idx - 1; i--) {
     // copy into the slot below. push downward all the way up the lines.
     memcpy(&t->lines[i + 1], &t->lines[i], sizeof(Line));
   }
 
   // copy the new line into the right spot.
-  memcpy(&t->lines[n], &new, sizeof(Line));
+  memcpy(&t->lines[line_idx], &new, sizeof(Line));
 
-  t->y = n;
+  t->y = line_idx;
 }
 
 void text_paste_buffer(const char *buffer) {
@@ -101,7 +142,7 @@ void text_paste_buffer(const char *buffer) {
 void text_open_line_above() {
   Text *t = curr_text;
   // don't let it go negative.
-  _open_line_n(MAX(t->y - 1, 0));
+  _open_line_n(MAX(t->y, 0));
 }
 
 // 'o' in vi bindings
@@ -110,6 +151,34 @@ void text_open_line() {
   // don't let it overflow the file.
   _open_line_n(MIN(t->y + 1, t->num_lines));
 }
+
+// the return key, open a line then move the text after the cursor onto the next
+// line.
+void text_return() {
+  char buf[LINE_BUF_SZ];
+  Line *prev_line = CURR_LINE;
+  int sz = w_gb_get_length_after_gap(prev_line);
+  if (sz == 0) {
+    // if there's nothing after the cursor, just open a new line.
+    text_open_line();
+    return;
+  } else {
+    buf[0] = ((char *)prev_line->buffer)[prev_line->gap_start - 1];
+    memcpy(buf + 1, &prev_line->buffer[prev_line->gap_end + 1],
+           sz);             // get the text after the buffer.
+    buf[sz - 1 + 1] = '\0'; // null term over the newline, but add in the extra
+                            // cursor character.
+
+    text_delete_after_cursor();
+    text_delete_char(); // then, delete the cursor itself.
+    status_printf("end '%s'\n", &CURR_LINE->buffer[CURR_LINE->gap_end + 1]);
+    text_open_line();
+
+    text_paste_buffer(buf);
+  }
+}
+
+void text_delete_after_cursor() { w_gb_delete_after_cursor(CURR_LINE); }
 
 void text_top() { text_move_y(-100000); }
 void text_bottom() { text_move_y(100000); }
@@ -189,6 +258,8 @@ void text_save() {
             (char *)&line->buffer[line->gap_end + 1]);
   }
 
+  status_printf("wrote %d lines.", t->num_lines);
+
   fclose(file);
 }
 
@@ -234,16 +305,16 @@ Text *text_open(char *file_path) {
     do {
       char buf[LINE_BUF_SZ] = {0};
 
-      Line *line = &t->lines[i];
-
-      if (fgets(buf, LINE_BUF_SZ, file) == NULL) {
+      if (fgets(buf, LINE_BUF_SZ, file) ==
+          NULL) { // this includes the newline into the buffer.
         break;
       } else {
-        i++;
+        Line *line = &t->lines[i];
         // init with the line buffer block of memory.
         w_gb_create_from_block(line, sizeof(char), LINE_BUF_SZ, buf,
                                strlen(buf));
         w_gb_go_to_beginning(line); // put the cursor in the first position.
+        i++;
       }
     } while (1);
 
