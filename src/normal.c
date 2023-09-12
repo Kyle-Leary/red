@@ -135,6 +135,7 @@ static void char_handler(char c) {
 
   case 'x': {
     text_delete_char();
+    text_move_x(1);
   } break;
 
   case 'D': {

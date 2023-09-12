@@ -6,7 +6,7 @@ CC := gcc
 # dynamic linkage table, so don't make something static if you want it
 # to show up in the stack trace.
 CFLAGS += -DDEBUG=1 -rdynamic
-CFLAGS += -Wall -Wno-missing-braces -Wno-unused-variable -ggdb
+CFLAGS += -w -ggdb
 
 # which debugger do you use?
 GDB:=gf2

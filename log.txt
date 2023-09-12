@@ -1,7 +1,4 @@
 starting red
 logging is maybe working
 logging is probably working
-1694482448: opening line at 1
-1694482482: opening line at 13
-1694482484: opening line at 8
 leaving red

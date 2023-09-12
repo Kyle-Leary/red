@@ -139,6 +139,7 @@ static void render_text() {
       tb_change_color(TB, TC_RESET);
       tb_change_color(TB, TC_RED);
       tb_pprintf(TB, j, base_col + 4, ": ", idx + 1);
+
       print_line(j, base_col + 7, line, TB);
     }
 
