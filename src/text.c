@@ -103,10 +103,9 @@ void _open_line_n(int line_idx) {
   log_printf("opening line at %d\n", line_idx);
 
   Text *t = curr_text;
-  char init = '\n';
   t->num_lines++;
   Line new;
-  w_gb_create(&new, sizeof(char), LINE_BUF_SZ, &init);
+  w_gb_create(&new, sizeof(char), LINE_BUF_SZ);
 
   for (int i = t->num_lines - 2; i > line_idx - 1; i--) {
     // copy into the slot below. push downward all the way up the lines.
@@ -188,14 +187,13 @@ void _paragraph_handler(int dir) {
 
   text_move_y(dir);
   do {
-    Line *line = &t->lines[t->y];
-    if (((char *)line->buffer)[0] == '\n') {
+    if (w_gb_get_length(CURR_LINE) == 0) {
       // empty line, stop moving unless there's another empty line right in
       // front of us.
       int next_idx = t->y + dir;
       if (IS_INSIDE(next_idx, 0, t->num_lines)) {
         Line *next_line = &t->lines[next_idx];
-        if (((char *)next_line->buffer)[0] != '\n') {
+        if (w_gb_get_length(next_line) == 0) {
           break;
         }
         // if it's not an empty, move again.
@@ -254,7 +252,9 @@ void text_save() {
 
   for (int i = 0; i < t->num_lines; i++) {
     Line *line = &t->lines[i];
-    fprintf(file, "%s%s", (char *)line->buffer,
+    // add in the newline externally, remember that we aren't keeping the
+    // newline in the buffer.
+    fprintf(file, "%s%s\n", (char *)line->buffer,
             (char *)&line->buffer[line->gap_end + 1]);
   }
 
@@ -291,8 +291,7 @@ Text *text_open(char *file_path) {
 
     // then, init the lines of the text.
     t->num_lines = 1;
-    char init = '\n';
-    w_gb_create(&t->lines[0], sizeof(char), LINE_BUF_SZ, &init);
+    w_gb_create(&t->lines[0], sizeof(char), LINE_BUF_SZ);
   } else {
     // then, read all the lines directly into the buffer.
     FILE *file = fopen(file_path, "r");
@@ -312,8 +311,9 @@ Text *text_open(char *file_path) {
         Line *line = &t->lines[i];
         // init with the line buffer block of memory.
         w_gb_create_from_block(line, sizeof(char), LINE_BUF_SZ, buf,
-                               strlen(buf));
-        w_gb_go_to_beginning(line); // put the cursor in the first position.
+                               strlen(buf) -
+                                   1); // trim the newline from the block.
+        w_gb_go_to_beginning(line);    // put the cursor in the first position.
         i++;
       }
     } while (1);

@@ -53,6 +53,7 @@ void init_highlighting() {
   DEFINE_REGEX("semicolon", ";");
   DEFINE_REGEX("escaped", "\\[a-zA-Z0-9]");
   DEFINE_REGEX("function_name", "[a-zA-Z0-9_]+\\(");
+  DEFINE_REGEX("preprocessor", "#.*");
 
 #undef DEFINE_REGEX
 }
@@ -108,7 +109,7 @@ void print_line(int row, int col, Line *l, Termbuffer *tb) {
     COLOR_MATCHES(TC_GREEN, m, 0, -1);
   }
 
-  SIMPLE_COLOR_ALL(TC_RED, escaped);
+  // SIMPLE_COLOR_ALL(TC_RED, escaped);
   SIMPLE_COLOR_ALL(TC_YELLOW, string_literals);
 
   SIMPLE_COLOR_ALL(TC_BLUE, int);
@@ -118,8 +119,10 @@ void print_line(int row, int col, Line *l, Termbuffer *tb) {
   SIMPLE_COLOR_ALL(TC_BLUE, leftparen);
   SIMPLE_COLOR_ALL(TC_BLUE, rightparen);
 
-  SIMPLE_COLOR_ALL(TC_RED, semicolon);
-  SIMPLE_COLOR_ALL(TC_RED, char_literals);
+  // SIMPLE_COLOR_ALL(TC_RED, semicolon);
+  // SIMPLE_COLOR_ALL(TC_RED, char_literals);
+
+  SIMPLE_COLOR_ALL(TC_BG_BLUE, preprocessor);
 
   tb_pprintf(tb, row, col, "%s", line_buf);
 

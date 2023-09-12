@@ -1,9 +1,12 @@
-char *_ptr = "hello world";
+#include <stdio.h>
 
+char *_ptr = "hello world";
+char *_ptr_again = _ptr;
 int hello_world = 3;
 
-int main() { // the main routine of the program.
-  printf("hello %d\n", hello_world); 
+int main() {
+  printf("hello %d\n", 
+    hello_world);
 }
 
 // printf more comment stuff

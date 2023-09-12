@@ -1,4 +1,8 @@
 starting red
 logging is maybe working
 logging is probably working
+1694497781: opening line at 9
+1694497830: opening line at 9
+1694497830: opening line at 10
+1694497834: opening line at 5
 leaving red

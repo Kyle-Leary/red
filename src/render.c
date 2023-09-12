@@ -139,6 +139,7 @@ static void render_text() {
       tb_change_color(TB, TC_RESET);
       tb_change_color(TB, TC_RED);
       tb_pprintf(TB, j, base_col + 4, ": ", idx + 1);
+      tb_change_color(TB, TC_RESET);
 
       print_line(j, base_col + 7, line, TB);
     }
@@ -148,7 +149,8 @@ static void render_text() {
 
   tb_draw(TB);
 
-  move_cursor(5 + center_offset, 8 + CURR_LINE->gap_start);
+  move_cursor(5 + center_offset,
+              8 + ((CURR_LINE->gap_start) ? CURR_LINE->gap_start : 1));
 }
 
 void status_printf(const char *format, ...) {
