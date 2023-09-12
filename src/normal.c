@@ -2,6 +2,7 @@
 #include "clipboard.h"
 #include "keydef.h"
 #include "line.h"
+#include "macro.h"
 #include "macros.h"
 #include "mode.h"
 #include "render.h"
@@ -200,6 +201,18 @@ static void char_handler(char c) {
     }
   } break;
 
+    // either append or play a macro.
+  case 'q': {
+    macro_start_recording(c);
+    prev = '\0';
+    return;
+  } break;
+  case '@': {
+    macro_play(c);
+    prev = '\0';
+    return;
+  } break;
+
   default: {
     // this prev is not registered to be handled, so just let it propagate into
     // the normal loop.
@@ -356,6 +369,19 @@ static void char_handler(char c) {
   } break;
   case 'B': {
     text_move_word(-1);
+  } break;
+
+    // macro commands
+  case 'q': {
+    if (curr_macro == '\0') {
+      prev = 'q';
+    } else {
+      macro_stop_recording();
+    }
+  } break;
+
+  case '@': {
+    prev = '@';
   } break;
   }
 }

@@ -1,6 +1,7 @@
 #include "filetype.h"
 #include "highlighting.h"
 #include "logging.h"
+#include "macro.h"
 #include "sig.h"
 #include <stdlib.h>
 #define _GNU_SOURCE
@@ -160,6 +161,7 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < num_e; i++) {
       InputEvent e = events[i];
+      macro_handle_input(&e);
       handle_input(&e);
     }
 

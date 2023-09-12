@@ -4,6 +4,7 @@
 #include "filetype.h"
 #include "highlighting.h"
 #include "line.h"
+#include "macro.h"
 #include "macros.h"
 #include "mode.h"
 #include "normal.h"
@@ -118,6 +119,10 @@ static void render_text() {
     tb_pprintf(TB, 5, 3, ":edit <filepath> to edit a file.");
     tb_draw(TB);
     return;
+  }
+
+  if (curr_macro) {
+    tb_pprintf(TB, 3, 1, " @%c", curr_macro);
   }
 
   int center_offset = 10;
